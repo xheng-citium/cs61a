@@ -1,7 +1,5 @@
-#!/usr/bin/python3
-
 """The Game of Hog."""
-import pdb
+
 from dice import four_sided, six_sided, make_test_dice
 from ucb import main, trace, log_current_line, interact
 
@@ -21,18 +19,7 @@ def roll_dice(num_rolls, dice=six_sided):
     # These assert statements ensure that num_rolls is a positive integer.
     assert type(num_rolls) == int, 'num_rolls must be an integer.'
     assert num_rolls > 0, 'Must roll at least once.'
-    results = [] 
-    for n in range(num_rolls):
-        results.append(dice())
-
-    if 1 in results: # pig out rule
-        #print("pig out")
-        return 1
-    else:
-        return sum(results)
-
-def free_bacon_score(opponent_score):
-    return  1 + abs(opponent_score // 10 - opponent_score % 10)
+    "*** YOUR CODE HERE ***"
 
 def take_turn(num_rolls, opponent_score, dice=six_sided):
     """Simulate a turn rolling NUM_ROLLS dice, which may be 0 (Free bacon).
@@ -41,30 +28,17 @@ def take_turn(num_rolls, opponent_score, dice=six_sided):
     opponent_score:  The total score of the opponent.
     dice:            A function of no args that returns an integer outcome.
     """
-    try: 
-        assert type(num_rolls) == int, 'num_rolls must be an integer.'
-    except AssertionError:
-        pdb.set_trace()
+    assert type(num_rolls) == int, 'num_rolls must be an integer.'
     assert num_rolls >= 0, 'Cannot roll a negative number of dice.'
     assert num_rolls <= 10, 'Cannot roll more than 10 dice.'
     assert opponent_score < 100, 'The game should be over.'
-    
-    if num_rolls == 0: # free bacon rule 
-        #print("free bacon")
-        myscore = free_bacon_score(opponent_score)
-    else:
-        myscore = roll_dice(num_rolls, dice)
-    return myscore
+    "*** YOUR CODE HERE ***"
 
 def select_dice(score, opponent_score):
     """Select six-sided dice unless the sum of SCORE and OPPONENT_SCORE is a
     multiple of 7, in which case select four-sided dice (Hog wild).
     """
-    if (score+opponent_score) % 7 == 0 and (score+opponent_score) > 0: # hog wild rule
-        #print("hog wild")
-        return four_sided
-    else:
-        return six_sided
+    "*** YOUR CODE HERE ***"
 
 def bid_for_start(bid0, bid1, goal=GOAL_SCORE):
     """Given the bids BID0 and BID1 of each player, returns three values:
@@ -77,20 +51,20 @@ def bid_for_start(bid0, bid1, goal=GOAL_SCORE):
     assert type(bid0) == int and type(bid1) == int, "Bids should be integers!"
 
     # The buggy code is below:
-    # Xin: I have corrected it
     if bid0 == bid1:
-        return goal, goal, 0
-    if bid1 == bid0 - 5:
-        return 10, 0, 0
+        return 0, goal, goal
+    if bid0 == bid1 - 5:
+        return 0, 0, 0
     if bid1 == bid0 + 5:
-        return 0, 10, 1
+        return 10, 0, 1
     if bid1 > bid0:
-        return bid1, bid0, 1
-    else:
         return bid1, bid0, 0
+    else:
+        return bid0, bid1, 1
 
 def other(who):
     """Return the other player, for a player WHO numbered 0 or 1.
+
     >>> other(0)
     1
     >>> other(1)
@@ -111,23 +85,9 @@ def play(strategy0, strategy1, score0=0, score1=0, goal=GOAL_SCORE):
     score0   :  The starting score for Player 0
     score1   :  The starting score for Player 1
     """
-    # score0, score1, who =  bid_for_start(bid0=0, bid1=1) # NB: dont see requirement of using bid_for_start()
-    who = 0 # Which player is about to take a turn, 0 (first) or 1 (second)
-    while (score0 < 100 and score1 < 100):
-        if who == 0:
-            num_rolls = strategy0(score0, score1)
-            diceFunc  = select_dice(score0, score1)
-            score0   += take_turn(num_rolls, score1, diceFunc)
-        elif who == 1:
-            num_rolls = strategy1(score1, score0)
-            diceFunc  = select_dice(score1, score0)
-            score1   += take_turn(num_rolls, score0, diceFunc)
-        if score1 == 2 * score0 or score0 == 2 * score1:
-            #print("swine swap")
-            score0, score1 = score1, score0 
-        who = other(who)
-    
-    return score0, score1
+    who = 0  # Which player is about to take a turn, 0 (first) or 1 (second)
+    "*** YOUR CODE HERE ***"
+    return score0, score1  # You may want to change this line.
 
 #######################
 # Phase 2: Strategies #
@@ -170,12 +130,7 @@ def make_averaged(fn, num_samples=1000):
     - In the other, the player rolls a 5 and 6, scoring 11.
     Thus, the average value is 6.0.
     """
-    def ret_avg(*args):
-        score = 0
-        for n in range(num_samples):
-            score += fn(*args)
-        return score/num_samples
-    return ret_avg
+    "*** YOUR CODE HERE ***"
 
 def max_scoring_num_rolls(dice=six_sided):
     """Return the number of dice (1 to 10) that gives the highest average turn
@@ -186,14 +141,7 @@ def max_scoring_num_rolls(dice=six_sided):
     >>> max_scoring_num_rolls(dice)
     10
     """
-    best_dice = 0 # best number of dice
-    best_score = 0 # highest score
-    for n in range(1, 11):
-        score = make_averaged(roll_dice, 1000)(n, dice) # 10000 gives better answers
-        if score > best_score: # must be strictly larger than
-            best_dice = n
-            best_score = score
-    return best_dice
+    "*** YOUR CODE HERE ***"
 
 def winner(strategy0, strategy1):
     """Return 0 if strategy0 wins against strategy1, and 1 otherwise."""
@@ -217,32 +165,28 @@ def run_experiments():
         four_sided_max = max_scoring_num_rolls(four_sided)
         print('Max scoring num rolls for four-sided dice:', four_sided_max)
 
-    if True: # Change to True to test always_roll(8)
-        print('\nalways_roll(8) win rate:', average_win_rate(always_roll(8) ))
-        print('Xin\'s always_roll(6) win rate:', average_win_rate(always_roll(6) ))
+    if False: # Change to True to test always_roll(8)
+        print('always_roll(8) win rate:', average_win_rate(always_roll(8)))
 
-    if True: # Change to True to test bacon_strategy
-        print('\nbacon_strategy win rate:', average_win_rate(bacon_strategy ))
+    if False: # Change to True to test bacon_strategy
+        print('bacon_strategy win rate:', average_win_rate(bacon_strategy))
 
-    if True: # Change to True to test swap_strategy
-        print('\nswap_strategy win rate:', average_win_rate(swap_strategy ))
+    if False: # Change to True to test swap_strategy
+        print('swap_strategy win rate:', average_win_rate(swap_strategy))
 
-    if True: # Change to True to test final_strategy
-        print('\nfinal_strategy win rate:', average_win_rate(final_strategy ))
+    if False: # Change to True to test final_strategy
+        print('final_strategy win rate:', average_win_rate(final_strategy))
 
     "*** You may add additional experiments as you wish ***"
 
 # Strategies
 
 def bacon_strategy(score, opponent_score, margin=8, num_rolls=5):
-#def bacon_strategy(margin=8, num_rolls=5):
     """This strategy rolls 0 dice if that gives at least MARGIN points,
     and rolls NUM_ROLLS otherwise.
     """
-    # No need to use functional programming like in always_rolls()
-    if free_bacon_score(opponent_score) >= margin:
-        return 0
-    else: return num_rolls
+    "*** YOUR CODE HERE ***"
+    return None # Replace this statement
 
 def swap_strategy(score, opponent_score, margin=8, num_rolls=5):
     """This strategy rolls 0 dice when it would result in a beneficial swap and
@@ -250,31 +194,17 @@ def swap_strategy(score, opponent_score, margin=8, num_rolls=5):
     0 dice if that gives at least MARGIN points and rolls
     NUM_ROLLS otherwise.
     """
-    # This is like an enhanced bacon_strategy
-    # No need to use functional programming like in always_rolls()
-    potential_score = score + free_bacon_score(opponent_score)  
-    if opponent_score == 2 * potential_score:
-        return 0
-    if potential_score == 2 * opponent_score:
-        return num_rolls
-    
-    return bacon_strategy(score, opponent_score, margin, num_rolls)
+    "*** YOUR CODE HERE ***"
+    return None # Replace this statement
+
 
 def final_strategy(score, opponent_score):
     """Write a brief description of your final strategy.
 
-       A bit more than swap_strategy: If I am hit by hog wild rule, then I choose num_rolls = 4
+    *** YOUR DESCRIPTION HERE ***
     """
-    num_rolls = 5 
-    margin = 8
-    potential_score = score + free_bacon_score(opponent_score)  
-    if opponent_score == 2 * potential_score:
-        return 0
-    if potential_score == 2 * opponent_score:
-        if (score+opponent_score) % 7 == 0 and (score+opponent_score) > 0: 
-            num_rolls = 4
-    
-    return bacon_strategy(score, opponent_score, margin, num_rolls)
+    "*** YOUR CODE HERE ***"
+    return 5 # Replace this statement
 
 
 ##########################
