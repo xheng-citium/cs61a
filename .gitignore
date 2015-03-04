@@ -5,6 +5,9 @@
 *.txt
 *.dat
 *.csv
+*.jpg
+*.gif
+*.pdf
 
 results/
 log/

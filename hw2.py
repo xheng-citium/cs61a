@@ -1,136 +1,127 @@
-#!/usr/bin/python3
+# CS 61A Fall 2014
+# Name:
+# Login:
 
-from operator import add, sub
+def square(x):
+    return x * x
 
-def a_plus_abs_b(a, b):
-    # Return a+abs(b), but without calling abs.
-    if b < 0:
-        f = sub
-    else:
-        f = add
-    return f(a,b)
+def triple(x):
+    return 3 * x
 
-def two_of_three(a, b, c):
-    """Return x*x + y*y, where x and y are the two largest members of the
-    positive numbers a, b, and c.
-
-    >>> two_of_three(1, 2, 3)
-    13
-    >>> two_of_three(5, 3, 1)
-    34
-    >>> two_of_three(10, 2, 8)
-    164
-    >>> two_of_three(5, 5, 5)
-    50
-    """
-    return a*a + b*b + c*c - min(a,b,c) **2
-
-#############################################################
-# with_if_statement() returns the number 1, but with_if_function() does not (it can do anything else):
-
-def if_function(cond, true_result, false_result):
-    """Return true_result if condition is a true value, and
-    false_result otherwise.
-
-    >>> if_function(True, 2, 3)
-    2
-    >>> if_function(False, 2, 3)
-    3
-    >>> if_function(3==2, 3+2, 3-2)
-    1
-    >>> if_function(3>2, 3+2, 3-2)
-    5
-    """
-    if cond:
-        return true_result
-    else:
-        return false_result
-
-def with_if_statement():
-    """
-    >>> with_if_statement()
-    1
-    """
-    if c():
-        return t()
-    else:
-        return f()
-
-def with_if_function():
-    return if_function(c(), t(), f())
-
-def c():
-    if "x" not in globals():
-        global x 
-        x = 0 
-    return False
-
-def t():
-    global x
-    x = x * 100
-    return x 
-
-def f():
-    global x 
-    x = x + 1
+def identity(x):
     return x
 
-# The trick is t() called regardless in with_if_function(). t() is never called in with_if_statement()
+def increment(x):
+    return x + 1
 
-###################################################################
-def hailstone(n):
-    """Print the hailstone sequence starting at n and return its
-    length.
+def piecewise(f, g, b):
+    """Returns the piecewise function h where:
 
-    >>> a = hailstone(10)
-    10
-    5
-    16
-    8
-    4
-    2
+    h(x) = f(x) if x < b,
+           g(x) otherwise
+
+    >>> def negate(x):
+    ...     return -x
+    >>> abs_value = piecewise(negate, identity, 0)
+    >>> abs_value(6)
+    6
+    >>> abs_value(-1)
     1
-    >>> a
-    7
     """
-    steps = 0
-    while n > 1:
-        print(n)
-        steps += 1
-        if n % 2 == 1:
-            n = n*3+1
-        else:
-            n = n//2
-    print(n)
-    steps += 1
-    return steps
-        
-if __name__ == "__main__":
-    # Q1
-    print("\nQ1")
-    print(a_plus_abs_b(2, 3))
-    print(a_plus_abs_b(2, -3))
-    
-    #Q2
-    print("\nQ2")
-    print(two_of_three(1, 2, 3))
-    print(two_of_three(5, 3, 1))
-    print(two_of_three(10, 2, 8))
-    print(two_of_three(5, 5, 5))
+    "*** YOUR CODE HERE ***"
 
-    #Q3
-    print("\nQ3")
-    print(with_if_statement())
-    print(with_if_function())
-   
-    #Q4
-    print("\nQ4:Hailstone")
-    a = hailstone(10)
-    print("hailstone(10) steps =", a)
-    a = hailstone(1)
-    print("hailstone(1) steps =", a)
+def intersects(f, x):
+    """Returns a function that returns whether f intersects g at x.
 
-    #TODO: Challenge question
+    >>> at_three = intersects(square, 3)
+    >>> at_three(triple) # triple(3) == square(3)
+    True
+    >>> at_three(increment)
+    False
+    >>> at_one = intersects(identity, 1)
+    >>> at_one(square)
+    True
+    >>> at_one(triple)
+    False
+    """
+    "*** YOUR CODE HERE ***"
 
+def repeated(f, n):
+    """Return the function that computes the nth application of f.
+
+    >>> add_three = repeated(increment, 3)
+    >>> add_three(5)
+    8
+    >>> repeated(triple, 5)(1) # 3 * 3 * 3 * 3 * 3 * 1
+    243
+    >>> repeated(square, 2)(5) # square(square(5))
+    625
+    >>> repeated(square, 4)(5) # square(square(square(square(5))))
+    152587890625
+    """
+    "*** YOUR CODE HERE ***"
+
+###################
+# Church Numerals #
+###################
+
+def zero(f):
+    return lambda x: x
+
+def successor(n):
+    return lambda f: lambda x: f(n(f)(x))
+
+def one(f):
+    """Church numeral 1: same as successor(zero)"""
+    "*** YOUR CODE HERE ***"
+
+def two(f):
+    """Church numeral 2: same as successor(successor(zero))"""
+    "*** YOUR CODE HERE ***"
+
+three = successor(two)
+
+def church_to_int(n):
+    """Convert the Church numeral n to a Python integer.
+
+    >>> church_to_int(zero)
+    0
+    >>> church_to_int(one)
+    1
+    >>> church_to_int(two)
+    2
+    >>> church_to_int(three)
+    3
+    """
+    "*** YOUR CODE HERE ***"
+
+def add_church(m, n):
+    """Return the Church numeral for m + n, for Church numerals m and n.
+
+    >>> church_to_int(add_church(two, three))
+    5
+    """
+    "*** YOUR CODE HERE ***"
+
+def mul_church(m, n):
+    """Return the Church numeral for m * n, for Church numerals m and n.
+
+    >>> four = successor(three)
+    >>> church_to_int(mul_church(two, three))
+    6
+    >>> church_to_int(mul_church(three, four))
+    12
+    """
+    "*** YOUR CODE HERE ***"
+
+def pow_church(m, n):
+    """Return the Church numeral m ** n, for Church numerals m and n.
+
+    >>> church_to_int(pow_church(two, three))
+    8
+    >>> church_to_int(pow_church(three, two))
+    9
+    """
+    "*** YOUR CODE HERE ***"
 
 
