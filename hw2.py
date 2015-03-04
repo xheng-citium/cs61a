@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+
 from operator import add, sub
 
 def a_plus_abs_b(a, b):
@@ -26,7 +27,8 @@ def two_of_three(a, b, c):
 
 #############################################################
 # with_if_statement() returns the number 1, but with_if_function() does not (it can do anything else):
-def if_function(condition, true_result, false_result):
+
+def if_function(cond, true_result, false_result):
     """Return true_result if condition is a true value, and
     false_result otherwise.
 
@@ -39,7 +41,7 @@ def if_function(condition, true_result, false_result):
     >>> if_function(3>2, 3+2, 3-2)
     5
     """
-    if condition:
+    if cond:
         return true_result
     else:
         return false_result
