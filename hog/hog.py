@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 
 """The Game of Hog."""
-import pdb
 from dice import four_sided, six_sided, make_test_dice
 from ucb import main, trace, log_current_line, interact
 
@@ -41,10 +40,7 @@ def take_turn(num_rolls, opponent_score, dice=six_sided):
     opponent_score:  The total score of the opponent.
     dice:            A function of no args that returns an integer outcome.
     """
-    try: 
-        assert type(num_rolls) == int, 'num_rolls must be an integer.'
-    except AssertionError:
-        pdb.set_trace()
+    assert type(num_rolls) == int, 'num_rolls must be an integer.'
     assert num_rolls >= 0, 'Cannot roll a negative number of dice.'
     assert num_rolls <= 10, 'Cannot roll more than 10 dice.'
     assert opponent_score < 100, 'The game should be over.'
