@@ -9,7 +9,7 @@ test = {
     [
       {
         'locked': True,
-        'test': """
+        'test': r"""
         >>> test_dice = make_test_dice(4, 1, 2)
         >>> test_dice()
         b1dfe57e56297284419307592a8af908

@@ -1,5 +1,7 @@
-"""The Game of Hog."""
+#!/usr/bin/python3
 
+"""The Game of Hog."""
+import pdb
 from dice import four_sided, six_sided, make_test_dice
 from ucb import main, trace, log_current_line, interact
 
@@ -19,7 +21,15 @@ def roll_dice(num_rolls, dice=six_sided):
     # These assert statements ensure that num_rolls is a positive integer.
     assert type(num_rolls) == int, 'num_rolls must be an integer.'
     assert num_rolls > 0, 'Must roll at least once.'
-    "*** YOUR CODE HERE ***"
+    results = [] 
+    for n in range(num_rolls):
+        results.append(dice())
+
+    if 1 in results: # pig out rule
+        print("pig out")
+        return 1
+    else:
+        return sum(results)
 
 def take_turn(num_rolls, opponent_score, dice=six_sided):
     """Simulate a turn rolling NUM_ROLLS dice, which may be 0 (Free bacon).
@@ -32,13 +42,23 @@ def take_turn(num_rolls, opponent_score, dice=six_sided):
     assert num_rolls >= 0, 'Cannot roll a negative number of dice.'
     assert num_rolls <= 10, 'Cannot roll more than 10 dice.'
     assert opponent_score < 100, 'The game should be over.'
-    "*** YOUR CODE HERE ***"
+    
+    if num_rolls == 0: # free bacon rule 
+        print("free bacon")
+        myscore = 1 + abs(opponent_score // 10 - opponent_score % 10)
+    else:
+        myscore = roll_dice(num_rolls, dice)
+    return myscore
 
 def select_dice(score, opponent_score):
     """Select six-sided dice unless the sum of SCORE and OPPONENT_SCORE is a
     multiple of 7, in which case select four-sided dice (Hog wild).
     """
-    "*** YOUR CODE HERE ***"
+    if (score+opponent_score) % 7 == 0 and (score+opponent_score) > 0: # hog wild rule
+        print("hog wild")
+        return four_sided
+    else:
+        return six_sided
 
 def bid_for_start(bid0, bid1, goal=GOAL_SCORE):
     """Given the bids BID0 and BID1 of each player, returns three values:
@@ -51,16 +71,17 @@ def bid_for_start(bid0, bid1, goal=GOAL_SCORE):
     assert type(bid0) == int and type(bid1) == int, "Bids should be integers!"
 
     # The buggy code is below:
+    # Xin: I have corrected it
     if bid0 == bid1:
-        return 0, goal, goal
-    if bid0 == bid1 - 5:
-        return 0, 0, 0
+        return goal, goal, 0
+    if bid1 == bid0 - 5:
+        return 10, 0, 0
     if bid1 == bid0 + 5:
-        return 10, 0, 1
+        return 0, 10, 1
     if bid1 > bid0:
-        return bid1, bid0, 0
+        return bid1, bid0, 1
     else:
-        return bid0, bid1, 1
+        return bid1, bid0, 0
 
 def other(who):
     """Return the other player, for a player WHO numbered 0 or 1.
@@ -86,7 +107,22 @@ def play(strategy0, strategy1, score0=0, score1=0, goal=GOAL_SCORE):
     score1   :  The starting score for Player 1
     """
     who = 0  # Which player is about to take a turn, 0 (first) or 1 (second)
-    "*** YOUR CODE HERE ***"
+    while (score0 < 100 and score1 < 100):
+        if who == 0:
+            num_rolls = strategy0(score0, score1)
+            diceFunc  = select_dice(score0, score1)
+            score0   += take_turn(num_rolls, score1, diceFunc)
+        elif who == 1:
+            num_rolls = strategy1(score1, score0)
+            diceFunc  = select_dice(score1, score0)
+            score1   += take_turn(num_rolls, score0, diceFunc)
+        if score1 == 2 * score0 or score0 == 2 * score1:
+            print("swine swap")
+            tmp = score0
+            score0, score1 = score1, tmp
+
+        who = other(who)
+    print(score0, score1)
     return score0, score1  # You may want to change this line.
 
 #######################
