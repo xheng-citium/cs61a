@@ -26,7 +26,7 @@ def roll_dice(num_rolls, dice=six_sided):
         results.append(dice())
 
     if 1 in results: # pig out rule
-        print("pig out")
+        #print("pig out")
         return 1
     else:
         return sum(results)
@@ -44,7 +44,7 @@ def take_turn(num_rolls, opponent_score, dice=six_sided):
     assert opponent_score < 100, 'The game should be over.'
     
     if num_rolls == 0: # free bacon rule 
-        print("free bacon")
+        #print("free bacon")
         myscore = 1 + abs(opponent_score // 10 - opponent_score % 10)
     else:
         myscore = roll_dice(num_rolls, dice)
@@ -55,7 +55,7 @@ def select_dice(score, opponent_score):
     multiple of 7, in which case select four-sided dice (Hog wild).
     """
     if (score+opponent_score) % 7 == 0 and (score+opponent_score) > 0: # hog wild rule
-        print("hog wild")
+        #print("hog wild")
         return four_sided
     else:
         return six_sided
@@ -117,12 +117,10 @@ def play(strategy0, strategy1, score0=0, score1=0, goal=GOAL_SCORE):
             diceFunc  = select_dice(score1, score0)
             score1   += take_turn(num_rolls, score0, diceFunc)
         if score1 == 2 * score0 or score0 == 2 * score1:
-            print("swine swap")
-            tmp = score0
-            score0, score1 = score1, tmp
+            #print("swine swap")
+            score0, score1 = score1, score0 
 
         who = other(who)
-    print(score0, score1)
     return score0, score1  # You may want to change this line.
 
 #######################
@@ -166,7 +164,9 @@ def make_averaged(fn, num_samples=1000):
     - In the other, the player rolls a 5 and 6, scoring 11.
     Thus, the average value is 6.0.
     """
-    "*** YOUR CODE HERE ***"
+    total = 0
+    for n in range(num_samples):
+        fn
 
 def max_scoring_num_rolls(dice=six_sided):
     """Return the number of dice (1 to 10) that gives the highest average turn
@@ -177,7 +177,14 @@ def max_scoring_num_rolls(dice=six_sided):
     >>> max_scoring_num_rolls(dice)
     10
     """
-    "*** YOUR CODE HERE ***"
+    best_dice = 0 # best number of dice
+    best_score = 0 
+    for n in range(1,11):
+        score = roll_dice(n, dice)
+        if score > best_score:
+            best_dice = n
+            best_score = score
+    return best_dice
 
 def winner(strategy0, strategy1):
     """Return 0 if strategy0 wins against strategy1, and 1 otherwise."""
