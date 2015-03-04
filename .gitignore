@@ -1,12 +1,15 @@
 # User defined
+ok
 *.swp
 *.swo
 *~
 *.txt
 *.dat
 *.csv
+*.json
 *.jpg
 *.gif
+*.png
 *.pdf
 
 results/
