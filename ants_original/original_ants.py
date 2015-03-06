@@ -5,11 +5,9 @@ import sys
 from ucb import main, interact, trace
 from collections import OrderedDict
 
-
 ################
 # Core Classes #
 ################
-
 
 class Place:
     """A Place holds insects and has an exit to another Place."""
@@ -61,7 +59,6 @@ class Place:
     def __str__(self):
         return self.name
 
-
 class Insect:
     """An Insect, the base class of Ant and Bee, has armor and a Place."""
 
@@ -96,7 +93,6 @@ class Insect:
         cname = type(self).__name__
         return '{0}({1}, {2})'.format(cname, self.armor, self.place)
 
-
 class Bee(Insect):
     """A Bee moves from place to place, following exits and stinging ants."""
 
@@ -127,7 +123,6 @@ class Bee(Insect):
             self.sting(self.place.ant)
         elif self.place is not colony.hive and self.armor > 0:
             self.move_to(self.place.exit)
-
 
 class Ant(Insect):
     """An Ant occupies a place and does work for the colony."""
