@@ -64,16 +64,19 @@ class Place:
     def remove_insect(self, insect):
         """
         Remove an Insect from this Place.
-        If Bodyguard is alone, not protecting anything:
-        If Bodyguard is protecting another ant, Bodyguard drops first and then another ant -> pass 
+            Do nothing on 1st QueenAnt -> pass
+            If Bodyguard is alone, not protecting anything -> pass
+            If Bodyguard protects a fellow ant, it drops first and then its fellow -> pass 
         """
+        if insect.name == "Queen" and insect.firstQueenAnt:
+            return
         if insect.is_ant:
             # Phase 4: Special handling for BodyguardAnt and QueenAnt
             if insect.container and insect.ant is not None: # insect is a Bodyguard instance, which is also protecting another
                 self.ant = insect.ant
             else:
                 assert self.ant == insect, '{0} is not in {1}'.format(insect, self)
-                self.ant = None
+                self.ant = None # Animation shows ant drops out of screen
         else:
             self.bees.remove(insect)
 
@@ -556,6 +559,7 @@ class HungryAnt(Ant):
         if self.place.bees:
             bee = random_or_none(self.place.bees)
             self.eat_bee(bee)
+            if debug: print("Hungry just ate a bee")
             self.digesting = self.time_to_digest
 
 class BodyguardAnt(Ant):
@@ -584,58 +588,84 @@ class QueenPlace:
     (2) The place in which the QueenAnt resides.
     """
     def __init__(self, colony_queen, ant_queen):
-        "*** YOUR CODE HERE ***"
+        self.places = list(set([colony_queen, ant_queen.place]))
 
     @property
     def bees(self):
-        return self.bees
-        "*** YOUR CODE HERE ***"
-
+        bs = [b for p in self.places for b in p.bees]
+        return bs
+    @property
+    def colony_queen(self):
+        return self.places[0]
+    @property
+    def ant_queen_place(self):
+        return self.places[1]
 
 class QueenAnt(ScubaThrower):  
     """The Queen of the colony.  The game is over if a bee enters her place."""
 
-    name = 'Queen'  
+    name = 'Queen'
     food_cost = 6
+    num_QueenAnt = 0
     implemented = True
 
     def __init__(self):
         ScubaThrower.__init__(self, armor=1)
-        self.hasDoubledDamage = False # Track if it has doubled other ants' damages
-        self.doubled_ants = [] # track what ants have been doubled
+        
+        QueenAnt.num_QueenAnt += 1
+        if QueenAnt.num_QueenAnt == 1:
+            self.firstQueenAnt = True
+            self.has_doubled_damage = False
+            self.doubled_ants = [] # track what ants have been doubled
+        else:
+            self.firstQueenAnt = False
 
     def action(self, colony):
         """A queen ant throws a leaf, but also doubles the damage of ants
         in her tunnel.
-
         Impostor queens do only one thing: reduce their own armor to 0.
+        Four steps:
+            1: self reduce armor is an imposter queen
+            2: record locations of colony queen and QueenAnt -> needed by an early game over
+            3: throw a leaf
+            4: double damanges of fellow ants only once
         """
-        assert len(self.place.bees) == 0, "Bees win: QueenAnt\'s place has bees. Please try again" 
-        
-        if not self.hasDoubledDamage:
-            # Search ants in two directions sequentially -> pass
-            # Should not double its own damage; should not double Bodyguard -> pass
-            this_place = self.place.entrance
-            while this_place is not colony.hive:
-                self.doubleDamage_atThisPlace(this_place)
-                this_place = this_place.entrance
-                if debug: print("Move to next place toward colony.hive")
 
-            this_place = self.place.exit
-            while this_place is not colony.queen: # Place("AntQueen")
-                self.doubleDamage_atThisPlace(this_place)
-                this_place = this_place.exit
-                if debug: print("Move to next place toward colony.queen")
+        if not self.firstQueenAnt: # if an imposter queen
+            self.reduce_armor(self.armor)
+            return
+        colony.queen = QueenPlace(colony.queen, self) # Track both colony queen and QueenAnt
+                                                      # Trigger a game over if found 1 bee
 
-            if debug: print( "\n".join(["%s: damage level=%d" %(ant.name, ant.damage) for ant in self.doubled_ants]))
-            self.hasDoubledDamage = True # this QueenAnt won't double again 
+        ScubaThrower.action(self, colony)
+        if not self.has_doubled_damage: # do it once and only once
+            self.doubleDamage_fellowAnts()
+            self.has_doubled_damage = True
 
-        # Still need to shoot leaf 
-        ScubaThrower.action(self, colony) 
+    def doubleDamage_fellowAnts(self):
+        """ 
+        Double damages of all fellow ants
+            Search ants in both directions sequentially -> pass
+            Should not double queen's own damage; should not double Bodyguard -> pass
+            Technically should not double WallAnt or Harvester, but it is ok
+        """
+        this_place = self.place
+        while this_place is not None:
+            if debug: print("Check this place toward colony hive")
+            self.doubleDamage_atThisPlace(this_place)
+            this_place = this_place.entrance
+
+        this_place = self.place
+        while this_place is not None:
+            if debug: print("Check this place toward colony queen")
+            self.doubleDamage_atThisPlace(this_place)
+            this_place = this_place.exit
+
+        if debug: print( "\n".join(["%s: damage level=%d" %(ant.name, ant.damage) for ant in self.doubled_ants]))
 
     def doubleDamage_atThisPlace(self, this_place):
         """if found an ant at this place, Double its damage"""
-        if this_place.ant is None:
+        if this_place.ant is None or this_place.ant.name == "Queen":
             return
 
         # Find which ant to double its damage and add to doubled_ants list
@@ -652,7 +682,6 @@ class QueenAnt(ScubaThrower):
             if debug: print(this_ant.name, "damage doubled to", this_ant.damage)
             self.doubled_ants.append(this_ant) # maintain a list of doubled ants
         return
-
 
 class AntRemover(Ant):
     """Allows the player to remove ants from the board in the GUI."""
