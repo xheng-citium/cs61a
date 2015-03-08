@@ -7,6 +7,13 @@ from collections import OrderedDict
 
 import pdb
 
+"""
+Xin note: 
+    Various locations reach in, e.g. place.name directly calls member variable
+    Insect holds a Place instance, and Place holds Insect instances
+    What makes an animation of insect dropping out of its Place?
+    Quite a few locations show pass-by-reference 
+"""
 ################
 # Core Classes #
 ################
@@ -41,14 +48,13 @@ class Place:
         """
         if insect.is_ant:
             # Phase 4: Special handling for BodyguardAnt
-            if self.ant is not None:
-                if self.ant.can_contain(insect): 
+            if self.ant is not None:  
+                if self.ant.can_contain(insect): # self.ant can contain
                     self.ant.contain_ant(insect)
-                else:
-                    if insect.can_contain(self.ant):
+                else:                         
+                    if insect.can_contain(self.ant): # insect can contain
                         insect.contain_ant(self.ant)
                         self.ant = insect
-                    else: return
             else:
                 self.ant = insect
         else:
@@ -63,7 +69,7 @@ class Place:
         """
         if insect.is_ant:
             # Phase 4: Special handling for BodyguardAnt and QueenAnt
-            if insect.container and insect.ant is not None:
+            if insect.container and insect.ant is not None: # insect is a Bodyguard instance, which is also protecting another
                 self.ant = insect.ant
             else:
                 assert self.ant == insect, '{0} is not in {1}'.format(insect, self)
@@ -131,6 +137,7 @@ class Bee(Insect):
         # Phase 3: Special handling for NinjaAnt
         if self.place.ant is not None and self.place.ant.blocks_path:
             return True
+        return False
 
     def action(self, colony):
         """A Bee's action stings the Ant that blocks its exit if it is blocked,
@@ -158,6 +165,7 @@ class Ant(Insect):
         Insect.__init__(self, armor)
     
     def can_contain(self, other): # problem 8 
+        """self is a container, other is not and self's container is empty"""
         return self.container and (not other.container) and (self.ant is None)
 
 
@@ -170,7 +178,6 @@ class HarvesterAnt(Ant):
 
     def action(self, colony):
         """Produce 1 additional food for the colony.
-
         colony -- The AntColony, used to access game state information.
         """
         colony.food += 1 
@@ -197,13 +204,12 @@ class ThrowerAnt(Ant):
         This method returns None if there is no such Bee (or none in range).
         """
         this_place = self.place
-        counter = 0
+        counter = 0 # record 
         while this_place is not hive:
             counter += 1
-            if counter <= self.max_range and counter >= self.min_range:   
+            if counter <= self.max_range and counter >= self.min_range: 
                 if len(this_place.bees) > 0:
                     return random_or_none(this_place.bees)
-            
             this_place = this_place.entrance
         return None
 
@@ -269,7 +275,7 @@ class AntColony:
         """Configure the places in the colony."""
         self.queen = Place('AntQueen')
         self.places = OrderedDict()
-        self.bee_entrances = []
+        self.bee_entrances = [] # 
         def register_place(place, is_bee_entrance):
             self.places[place.name] = place
             if is_bee_entrance:
@@ -283,7 +289,7 @@ class AntColony:
         while len(self.queen.bees) == 0 and len(self.bees) > 0:
             self.hive.strategy(self)    # Bees invade
             self.strategy(self)         # Ants deploy
-            for ant in self.ants:       # Ants take actions
+            for ant in self.ants:       # Ants take actions. from def ants(self)
                 if ant.armor > 0:
                     ant.action(self)
             for bee in self.bees:       # Bees take actions
@@ -458,6 +464,7 @@ class Water(Place):
         Place.add_insect(self, insect)
         if not insect.watersafe:
             insect.reduce_armor(insect.armor)
+            insect = None
 
 
 class FireAnt(Ant):
@@ -474,38 +481,32 @@ class FireAnt(Ant):
     
     def action(self, colony):
         if self.armor <= 0:
-            self.reduce_armor(FireAnt.damage)
+            self.reduce_armor(self.damage)
 
 
 class LongThrower(ThrowerAnt):
     """A ThrowerAnt that only throws leaves at Bees at least 4 places away."""
     name = 'Long'
-    damage = 1
     food_cost = 3
-    min_range, max_range = 4, 10
+    min_range = 4
     implemented = True
 
 class ShortThrower(ThrowerAnt):
     """A ThrowerAnt that only throws leaves at Bees less than 3 places away."""
 
     name = 'Short'
-    damage = 1
     food_cost = 3
-    min_range, max_range = 0, 3
+    max_range = 3
     implemented = True
 
 # The WallAnt class
-class Wallant(Ant):   
-    
+class WallAnt(Ant):       
     name = 'Wall'
-    damage = 4
+    damage = 0    
     food_cost = 4
     implemented = True    
     def __init__(self, armor=4):
-        Ant.__init__(self, armor)
-
-    def action(self, colony):
-        return
+        Ant.__init__(self, armor) # thick armor to hold off bees longer
 
 class NinjaAnt(Ant):
     """NinjaAnt does not block the path and damages all bees in its place."""
@@ -517,15 +518,14 @@ class NinjaAnt(Ant):
     implemented = True
 
     def action(self, colony):  
-        for b in list(self.place.bees): # copy all the bees in this place
-            b.reduce_armor(NinjaAnt.damage) 
+        for b in list(self.place.bees): # deep-copy, b/c reduce_armor() can remove a bee from self.place.bees
+            b.reduce_armor(self.damage) 
 
 
 # The ScubaThrower class
 class ScubaThrower(ThrowerAnt):
     
     name = 'Scuba'
-    damage = 1
     food_cost = 5
     watersafe = True
     implemented = True
@@ -550,12 +550,13 @@ class HungryAnt(Ant):
     def action(self, colony):
         if self.digesting > 0:
             self.digesting -= 1
-            if debug: print("Time to wait:", self.digesting)
+            if debug: 
+                print("Hungry\'s time to wait:", self.digesting)
             return
         if self.place.bees:
             bee = random_or_none(self.place.bees)
             self.eat_bee(bee)
-            self.digesting = HungryAnt.time_to_digest
+            self.digesting = self.time_to_digest
 
 class BodyguardAnt(Ant):
     """BodyguardAnt provides protection to other Ants."""
@@ -587,6 +588,7 @@ class QueenPlace:
 
     @property
     def bees(self):
+        return self.bees
         "*** YOUR CODE HERE ***"
 
 
@@ -598,7 +600,9 @@ class QueenAnt(ScubaThrower):
     implemented = True
 
     def __init__(self):
-        "*** YOUR CODE HERE ***"
+        ScubaThrower.__init__(self, armor=1)
+        self.hasDoubledDamage = False # Track if it has doubled other ants' damages
+        self.doubled_ants = [] # track what ants have been doubled
 
     def action(self, colony):
         """A queen ant throws a leaf, but also doubles the damage of ants
@@ -606,7 +610,48 @@ class QueenAnt(ScubaThrower):
 
         Impostor queens do only one thing: reduce their own armor to 0.
         """
-        "*** YOUR CODE HERE ***"
+        assert len(self.place.bees) == 0, "Bees win: QueenAnt\'s place has bees. Please try again" 
+        
+        if not self.hasDoubledDamage:
+            # Search ants in two directions sequentially -> pass
+            # Should not double its own damage; should not double Bodyguard -> pass
+            this_place = self.place.entrance
+            while this_place is not colony.hive:
+                self.doubleDamage_atThisPlace(this_place)
+                this_place = this_place.entrance
+                if debug: print("Move to next place toward colony.hive")
+
+            this_place = self.place.exit
+            while this_place is not colony.queen: # Place("AntQueen")
+                self.doubleDamage_atThisPlace(this_place)
+                this_place = this_place.exit
+                if debug: print("Move to next place toward colony.queen")
+
+            if debug: print( "\n".join(["%s: damage level=%d" %(ant.name, ant.damage) for ant in self.doubled_ants]))
+            self.hasDoubledDamage = True # this QueenAnt won't double again 
+
+        # Still need to shoot leaf 
+        ScubaThrower.action(self, colony) 
+
+    def doubleDamage_atThisPlace(self, this_place):
+        """if found an ant at this place, Double its damage"""
+        if this_place.ant is None:
+            return
+
+        # Find which ant to double its damage and add to doubled_ants list
+        if this_place.ant.container:
+            if this_place.ant.ant is not None: # protected ant
+                this_ant = this_place.ant.ant
+            else: 
+                this_ant = None
+        else:
+            this_ant = this_place.ant
+        
+        if this_ant is not None:
+            this_ant.damage *= 2 # double damage
+            if debug: print(this_ant.name, "damage doubled to", this_ant.damage)
+            self.doubled_ants.append(this_ant) # maintain a list of doubled ants
+        return
 
 
 class AntRemover(Ant):
