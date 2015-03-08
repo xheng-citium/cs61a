@@ -594,12 +594,6 @@ class QueenPlace:
     def bees(self):
         bs = [b for p in self.places for b in p.bees]
         return bs
-    @property
-    def colony_queen(self):
-        return self.places[0]
-    @property
-    def ant_queen_place(self):
-        return self.places[1]
 
 class QueenAnt(ScubaThrower):  
     """The Queen of the colony.  The game is over if a bee enters her place."""
@@ -607,6 +601,7 @@ class QueenAnt(ScubaThrower):
     name = 'Queen'
     food_cost = 6
     num_QueenAnt = 0
+    checkLevels = True # whether to check damage levels of fellow ants
     implemented = True
 
     def __init__(self):
@@ -621,8 +616,8 @@ class QueenAnt(ScubaThrower):
             self.firstQueenAnt = False
 
     def action(self, colony):
-        """A queen ant throws a leaf, but also doubles the damage of ants
-        in her tunnel.
+        """
+        A queen ant throws a leaf, but also doubles the damage of ants in her tunnel.
         Impostor queens do only one thing: reduce their own armor to 0.
         Four steps:
             1: self reduce armor is an imposter queen
@@ -639,36 +634,39 @@ class QueenAnt(ScubaThrower):
 
         ScubaThrower.action(self, colony)
         if not self.has_doubled_damage: # do it once and only once
-            self.doubleDamage_fellowAnts()
+            #self.doubleDamage_fellowAnts()
+            self.run_fn_over_entire_tunnel(self.doubleDamage_atPlace)
             self.has_doubled_damage = True
 
-    def doubleDamage_fellowAnts(self):
+        if debug and QueenAnt.checkLevels: 
+            self.check_ants_damage_levels()
+
+    def run_fn_over_entire_tunnel(self, fn):   
         """ 
-        Double damages of all fellow ants
-            Search ants in both directions sequentially -> pass
-            Should not double queen's own damage; should not double Bodyguard -> pass
-            Technically should not double WallAnt or Harvester, but it is ok
+        Run the given function over the tunnel in both directions sequentially
         """
         this_place = self.place
         while this_place is not None:
-            if debug: print("Check this place toward colony hive")
-            self.doubleDamage_atThisPlace(this_place)
+            if debug: print(fn.__name__)
+            fn(this_place)
             this_place = this_place.entrance
 
         this_place = self.place
         while this_place is not None:
-            if debug: print("Check this place toward colony queen")
-            self.doubleDamage_atThisPlace(this_place)
+            if debug: print(fn.__name__)
+            fn(this_place)
             this_place = this_place.exit
+        return
 
-        if debug: print( "\n".join(["%s: damage level=%d" %(ant.name, ant.damage) for ant in self.doubled_ants]))
-
-    def doubleDamage_atThisPlace(self, this_place):
-        """if found an ant at this place, Double its damage"""
+    def doubleDamage_atPlace(self, this_place):
+        """
+        If found an ant at this place, Double its damage
+        Note that changes made on this_ant is passed to this_place -> xx
+        """
         if this_place.ant is None or this_place.ant.name == "Queen":
             return
 
-        # Find which ant to double its damage and add to doubled_ants list
+        # Find which ant to double and add it to doubled_ants list
         if this_place.ant.container:
             if this_place.ant.ant is not None: # protected ant
                 this_ant = this_place.ant.ant
@@ -678,10 +676,31 @@ class QueenAnt(ScubaThrower):
             this_ant = this_place.ant
         
         if this_ant is not None:
-            this_ant.damage *= 2 # double damage
+            this_ant.damage *= 2
             if debug: print(this_ant.name, "damage doubled to", this_ant.damage)
             self.doubled_ants.append(this_ant) # maintain a list of doubled ants
         return
+    
+    """
+    Three purposes for the below check on ants damage levels
+        1: verify ant damange is indeeded doubled
+        2. practice functional programming with run_fn_over_entire_tunnel(self, fn)
+        3. ensure pass by reference for this_ant in function doubleDamage_atPlace
+    """
+    def check_ants_damage_levels(self):
+        print("\nThis is from self.doubled_ants list:")
+        print("\n".join(["%s: damage level=%d" %(ant.name, ant.damage) for ant in self.doubled_ants]))
+        print( "This is from a new sweep of all ants:")
+        self.run_fn_over_entire_tunnel(self.check_ant_damage)
+
+    def check_ant_damage(self, this_place):     
+        if this_place.ant is None or this_place.ant.name == "Queen": return
+
+        if this_place.ant.container:
+            if this_place.ant.ant is not None: # protected ant
+                print("%s: damage level=%d" %(this_place.ant.ant.name, this_place.ant.ant.damage))
+        else:
+            print("%s: damage level=%d" %(this_place.ant.name, this_place.ant.damage))
 
 class AntRemover(Ant):
     """Allows the player to remove ants from the board in the GUI."""
