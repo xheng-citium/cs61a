@@ -12,6 +12,7 @@ ok
 *.gif
 *.png
 *.pdf
+*.html
 
 results/
 log/
