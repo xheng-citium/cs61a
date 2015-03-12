@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 """Visualizing Twitter Sentiment Across America"""
-
+import pdb
 from data import word_sentiments, load_tweets
 from datetime import datetime
 from geo import us_states, geo_distance, make_position, longitude, latitude
@@ -44,7 +44,7 @@ def make_tweet(text, time, lat, lon):
     '"just ate lunch" @ (122, 37)'
     """
     assert type(text) == str, "text must be a string"
-    assert type(time) == datetime, "time must be a datetime object"
+    assert type(time) == datetime or time is None, "time must be either None or a datetime object"
     assert type(lat) in [float, int] and type(lon) in [float, int], "lat and lon must be either intger or float"
     return [text, time, lat, lon]
 
@@ -163,13 +163,13 @@ def make_sentiment(value):
 
 def has_sentiment(s):
     """Return whether sentiment s has a value."""
-    if s("value") is None: return False
-    else: return True
+    return s("value") is not None
 
 def sentiment_value(s):
     """Return the value of a sentiment s."""
     assert has_sentiment(s), 'No sentiment value'
     return s("value")
+
 ######################################################################
 
 def get_word_sentiment(word):
@@ -206,20 +206,14 @@ def analyze_tweet_sentiment(tweet):
     >>> has_sentiment(analyze_tweet_sentiment(no_sentiment))
     False
     """
-    words = tweet_words(tweet)
-    sentList = [get_word_sentiment(w) for w in words ]
-    
+    sentList = [get_word_sentiment(w) for w in tweet_words(tweet) ] #sentiment list
     sent_ctr = 0 # sentimental word counter
     for s in sentList:
         if has_sentiment(s):
             sent_ctr += 1
-            if sent_ctr == 1:
-                sentiment_score = sentiment_value(s)
-            else:
-                sentiment_score += sentiment_value(s)
-    if sent_ctr > 0 :
-        return make_sentiment(sentiment_score / sent_ctr)
-    return make_sentiment(None)
+            if sent_ctr == 1: sentiment_score = sentiment_value(s)
+            else: sentiment_score += sentiment_value(s)
+    return make_sentiment(sentiment_score / sent_ctr) if sent_ctr > 0 else make_sentiment(None)
 
 #################################
 # Phase 2: The Geometry of Maps #
