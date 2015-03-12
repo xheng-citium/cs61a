@@ -3,6 +3,7 @@
 """Visualizing Twitter Sentiment Across America"""
 import pdb
 import re, os
+from collections import OrderedDict
 from data import word_sentiments, load_tweets, DATA_PATH
 from datetime import datetime
 from geo import us_states, geo_distance, make_position, longitude, latitude
@@ -16,6 +17,15 @@ except ImportError as e:
 from string import ascii_letters
 from ucb import main, trace, interact, log_current_line
 
+#######################################
+# constants 
+#######################################
+# a dictionary of emotion symbols and their values
+emotion_value = OrderedDict()
+emotion_value[":)"]  =  0.6 
+emotion_value[":-)"] =  0.7 
+emotion_value[":("]  = -0.5
+emotion_value[":-("] = -0.6
 
 ###################################
 # Phase 1: The Feelings in Tweets #
@@ -113,22 +123,15 @@ def tweet_words(tweet):
     """Return the words in a tweet."""
     return extract_words(tweet_text(tweet))
 
-def extract_words(text):
-    """Return the words in a tweet, not including punctuation.
+def extract_words(text, care_emotion_symbol=False):
+    """Return the words in a tweet, not including punctuation """
+    words = re.findall("[" + ascii_letters + "]+",text) 
+    if care_emotion_symbol:
+        for key in emotion_value:
+            emot = re.escape(key) # convert special metacharacter like ( and )
+            words += re.findall( emot, text)
 
-    >>> extract_words('anything else.....not my job')
-    ['anything', 'else', 'not', 'my', 'job']
-    >>> extract_words('i love my job. #winning')
-    ['i', 'love', 'my', 'job', 'winning']
-    >>> extract_words('make justin # 1 by tweeting #vma #justinbieber :)')
-    ['make', 'justin', 'by', 'tweeting', 'vma', 'justinbieber']
-    >>> extract_words("paperclips! they're so awesome, cool, & useful!")
-    ['paperclips', 'they', 're', 'so', 'awesome', 'cool', 'useful']
-    >>> extract_words('@(cat$.on^#$my&@keyboard***@#*')
-    ['cat', 'on', 'my', 'keyboard']
-    """
-    return re.findall("[" + ascii_letters + "]+",text) # this 1-liner works
-  
+    return  words 
 ####################################################################
 # sentiment pseudo class 
 def make_sentiment(value):
@@ -164,21 +167,13 @@ def sentiment_value(s):
     return s("value")
 
 ######################################################################
-
 def get_word_sentiment(word):
     """Return a sentiment representing the degree of positive or negative
     feeling in the given word.
-
-    >>> sentiment_value(get_word_sentiment('good'))
-    0.875
-    >>> sentiment_value(get_word_sentiment('bad'))
-    -0.625
-    >>> sentiment_value(get_word_sentiment('winning'))
-    0.5
-    >>> has_sentiment(get_word_sentiment('Berkeley'))
-    False
     """
     # Learn more: http://docs.python.org/3/library/stdtypes.html#dict.get
+    if word in emotion_value:
+        return make_sentiment(emotion_value[word])
     return make_sentiment(word_sentiments.get(word))
 
 def analyze_tweet_sentiment(tweet):

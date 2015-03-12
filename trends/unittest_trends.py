@@ -19,7 +19,7 @@ class test_phase_1(unittest.TestCase):
         self.assertRaises(AssertionError,trends.make_tweet,"just ate", (2014, 9, 29, 13),1, 7.5)
         self.assertRaises(AssertionError,trends.make_tweet,"just ate", datetime(2014, 9, 29, 13),"1",1)
         self.assertRaises(AssertionError,trends.make_tweet,"#  JUST ate#!  p", None, 1, 1)
-    
+        
     def test_make_tweet_fn(self):
         t = trends.make_tweet_fn('just ate', datetime(2014, 9, 29, 13), 122, 37)
         self.assertEqual(trends.tweet_text_fn(t), 'just ate')
@@ -34,9 +34,11 @@ class test_phase_1(unittest.TestCase):
     def test_extract_words(self):
         self.assertEqual( trends.extract_words('     anything else.....  ? not my job'), ['anything', 'else', 'not', 'my', 'job'])
         self.assertEqual( trends.extract_words('i don\'t love my car. #winning#?  '), ['i', 'don', 't', 'love', 'my', 'car', 'winning'])
-        self.assertEqual( trends.extract_words('make justin # 1 by tweeting #vma #justinbieber :)'), ['make', 'justin', 'by', 'tweeting', 'vma', 'justinbieber'])
+        self.assertEqual( trends.extract_words('make justin # 1 by tweeting #vma #justinbieber :)', care_emotion_symbol = False), ['make', 'justin', 'by', 'tweeting', 'vma', 'justinbieber'])
         self.assertEqual( trends.extract_words('@(cat$.on^#$my&@keyboard***@#*'), ['cat', 'on', 'my', 'keyboard'])
-
+        # Extra
+        self.assertEqual( trends.extract_words("this is#austin:) texas :( :)", care_emotion_symbol=True), ["this", "is", "austin", "texas", ":)", ":)", ":("])
+    
     def test_make_sentiment(self):
         positive = trends.make_sentiment(0.2)
         negative = trends.make_sentiment(-1)
@@ -51,6 +53,14 @@ class test_phase_1(unittest.TestCase):
 
         for bad_val in [-1.1, 1.01]:
             self.assertRaises(AssertionError, trends.make_sentiment, bad_val)
+    
+    def test_get_word_sentiment(self):
+        self.assertEqual( trends.sentiment_value(trends.get_word_sentiment('good')), 0.875)
+        self.assertEqual( trends.sentiment_value(trends.get_word_sentiment('bad')), -0.625)
+        self.assertEqual( trends.sentiment_value(trends.get_word_sentiment('winning')), 0.5)
+        self.assertFalse( trends.has_sentiment( trends.get_word_sentiment('Berkeley')))
+        self.assertEqual( trends.sentiment_value(trends.get_word_sentiment(':)')), 0.6)
+        self.assertEqual( trends.sentiment_value(trends.get_word_sentiment(':(')), -0.5)
 
     def test_analyze_tweet_sentiment(self):
         positive = trends.make_tweet('i love my job. #winning', None, 0, 0)
