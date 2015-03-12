@@ -106,7 +106,10 @@ class test_phase_3(unittest.TestCase):
         self.assertEqual( round(avg["NJ"],3), 0.708)
         self.assertTrue( "TX" in tweets_by_state and "TX" not in avg)
 
-
+class test_extra(unittest.TestCase):
+    def test_draw_map_for_query_by_hour(self):
+        self.assertRaises(AssertionError,trends.draw_map_for_query_by_hour, 26,"sendwich", "tweets2014.txt")
+        self.assertRaises(AssertionError,trends.draw_map_for_query_by_hour, 6,"sendwich", "tweets2013.txt")
 
 if __name__ == "__main__":
     unittest.main()

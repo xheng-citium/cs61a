@@ -427,13 +427,7 @@ def draw_state_sentiments(state_sentiments):
             draw_name(name, center)
 
 @uses_tkinter
-def draw_map_for_query(term='my job', file_name='tweets2014.txt'):
-    """Draw the sentiment map corresponding to the tweets that contain term.
-
-    Some term suggestions:
-    New York, Texas, sandwich, my life, justinbieber
-    """
-    tweets = load_tweets(make_tweet, term, file_name)
+def draw_map_of_selected_tweets(tweets):
     tweets_by_state = group_tweets_by_state(tweets)
     state_sentiments = average_sentiments(tweets_by_state)
     draw_state_sentiments(state_sentiments)
@@ -442,6 +436,27 @@ def draw_map_for_query(term='my job', file_name='tweets2014.txt'):
         if has_sentiment(s):
             draw_dot(tweet_location(tweet), sentiment_value(s))
     wait()
+
+def load_filter_tweets(term, file_name, filter_fn, *args):
+    tweets = load_tweets(make_tweet, term, file_name)
+    if filter_fn is None: 
+        return tweets
+    return filter_fn(tweets, *args)
+
+def draw_map_for_query(term='my job', file_name='tweets2014.txt'):
+    """Draw the sentiment map corresponding to the tweets that contain term.
+    Some term suggestions:
+    New York, Texas, sandwich, my life, justinbieber
+    """
+    tweets = load_filter_tweets( term, file_name, filter_fn=None)
+    draw_map_of_selected_tweets(tweets)
+
+def draw_map_for_query_by_hour(hour,term, file_name="tweets2014.txt"):
+    """Draw the sentiment map corresponding to term and hour"""
+    assert 0<= hour <=23, "Invalid hour"
+    filter_by_hour = lambda Y, hr: [t for t in Y if hr == tweet_time(t).hour]
+    tweets = load_filter_tweets( term, file_name, filter_by_hour, hour)
+    draw_map_of_selected_tweets(tweets)
 
 def swap_tweet_representation(other=[make_tweet_fn, tweet_text_fn,
                                      tweet_time_fn, tweet_location_fn]):
@@ -452,18 +467,17 @@ def swap_tweet_representation(other=[make_tweet_fn, tweet_text_fn,
     make_tweet, tweet_text, tweet_time, tweet_location = swap_to
 
 
-
-
 @main
 def run(*args):
     """Read command-line arguments and calls corresponding functions."""
     import argparse
     parser = argparse.ArgumentParser(description="Run Trends")
-    parser.add_argument('--print_sentiment', '-p', action='store_true')
-    parser.add_argument('--draw_centered_map', '-d', action='store_true')
+    parser.add_argument('--print_sentiment',    '-p', action='store_true')
+    parser.add_argument('--draw_centered_map',  '-d', action='store_true')
     parser.add_argument('--draw_map_for_query', '-m', type=str)
-    parser.add_argument('--tweets_file', '-t', type=str, default='tweets2014.txt')
-    parser.add_argument('--use_functional_tweets', '-f', action='store_true')
+    parser.add_argument('--draw_by_hour',       '-hr',type=int)
+    parser.add_argument('--tweets_file',        '-t', type=str, default='tweets2014.txt')
+    parser.add_argument('--use_functional_tweets','-f', action='store_true')
     parser.add_argument('text', metavar='T', type=str, nargs='*',
                         help='Text to process')
     args = parser.parse_args()
@@ -472,8 +486,15 @@ def run(*args):
         print("Now using a functional representation of tweets!")
         args.use_functional_tweets = False
     if args.draw_map_for_query:
+        term = args.draw_map_for_query
         print("Using", args.tweets_file)
-        draw_map_for_query(args.draw_map_for_query, args.tweets_file)
+        if args.draw_by_hour:
+            hour = args.draw_by_hour
+            print("Draw map by term: %s and by hour: %d" %( term,  hour) )
+            draw_map_for_query_by_hour(hour, term, args.tweets_file)
+        else:
+            print("Draw map by term:", term)
+            draw_map_for_query(term, args.tweets_file)
         return
     for name, execute in args.__dict__.items():
         if name != 'text' and name != 'tweets_file' and execute:
