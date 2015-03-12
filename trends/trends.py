@@ -43,6 +43,9 @@ def make_tweet(text, time, lat, lon):
     >>> tweet_string(t)
     '"just ate lunch" @ (122, 37)'
     """
+    assert type(text) == str, "text must be a string"
+    assert type(time) == datetime, "time must be a datetime object"
+    assert type(lat) in [float, int] and type(lon) in [float, int], "lat and lon must be either intger or float"
     return [text, time, lat, lon]
 
 def tweet_text(tweet):
@@ -73,13 +76,16 @@ def make_tweet_fn(text, time, lat, lon):
     122
     """
     # Please don't call make_tweet in your solution
+    assert type(text) == str, "text must be a string"
+    assert type(time) == datetime, "time must be a datetime object"
+    assert type(lat) in [float, int] and type(lon) in [float, int], "lat and lon must be either intger or float"
     def make(fld):
         if fld == "text": return text
         if fld == "time": return time
         if fld == "lat":  return lat
         if fld == "lon":  return lon
+        else: raise RuntimeError("Selected field is not valid")
     return make
-
 
 def tweet_text_fn(tweet):
     """Return a string, the words in the text of a functional tweet."""
@@ -122,7 +128,7 @@ def extract_words(text):
     lst = []
     currWd = ""
     for s in text:
-        if s not in ascii_letters:
+        if s not in ascii_letters: # meet a non-ascii -> currwd ends
             lst.append(currWd)
             currWd = ""
         else:
