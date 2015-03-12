@@ -18,6 +18,8 @@ class test_phase_1(unittest.TestCase):
         self.assertRaises(AssertionError,trends.make_tweet,123, datetime(2014, 9, 29, 13), 1, 1)
         self.assertRaises(AssertionError,trends.make_tweet,"just ate", (2014, 9, 29, 13),1, 7.5)
         self.assertRaises(AssertionError,trends.make_tweet,"just ate", datetime(2014, 9, 29, 13),"1",1)
+        self.assertRaises(AssertionError,trends.make_tweet,"#  JUST ate#!  p", None, 1, 1)
+    
     def test_make_tweet_fn(self):
         t = trends.make_tweet_fn('just ate', datetime(2014, 9, 29, 13), 122, 37)
         self.assertEqual(trends.tweet_text_fn(t), 'just ate')
@@ -78,7 +80,34 @@ class test_phase_2(unittest.TestCase):
         hi = trends.find_state_center(us_states['HI'])  # Hawaii
         self.assertEqual( round(latitude(hi), 5), 20.1489)
         self.assertEqual( round(longitude(hi), 5), -156.21763)
+
+class test_phase_3(unittest.TestCase):
+    def test_group_by_key(self): 
+        example = [ [1, 2], [3, 2], [2, 4], [1, 3], [3, 1], [1, 2] ]
+        self.assertEqual( trends.group_by_key(example), {1: [2, 3, 2], 2: [4], 3: [2, 1]})
+        example = [ ["1", 2], [3, 2], [2, 4], [1, 3], [3, 1], [1, 2] ]
+        self.assertEqual( trends.group_by_key(example), {"1":[2], 1: [ 3, 2], 2: [4], 3: [2, 1]})
     
+    def test_group_tweets_by_state(self):
+        sf = trends.make_tweet("welcome to san francisco", None, 38, -122)
+        ny = trends.make_tweet("welcome to new york", None, 41, -74)
+        aus = trends.make_tweet("this is austin", None, 30.25, -97.75)
+        tweets_by_state = trends.group_tweets_by_state([sf, ny, aus])
+        self.assertEqual(len(tweets_by_state), 3)
+        self.assertFalse("NY" in tweets_by_state) # this tweet is in NJ
+        self.assertEqual(len(tweets_by_state["TX"]), 1)
+    
+    def test_average_sentiments(self):
+        sf = trends.make_tweet("welcome to san francisco", None, 38, -122) # welcome
+        ny = trends.make_tweet("new york is good good", None, 41, -74) # new, good, good
+        aus = trends.make_tweet("this is austin", None, 30.25, -97.75) # no sentiment word
+        tweets_by_state = trends.group_tweets_by_state([sf, ny, aus])
+        avg = trends.average_sentiments(tweets_by_state)
+        self.assertEqual( round(avg["NJ"],3), 0.708)
+        self.assertTrue( "TX" in tweets_by_state and "TX" not in avg)
+
+
 
 if __name__ == "__main__":
     unittest.main()
+

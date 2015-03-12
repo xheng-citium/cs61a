@@ -2,6 +2,7 @@
 
 """Visualizing Twitter Sentiment Across America"""
 import pdb
+import re
 from data import word_sentiments, load_tweets
 from datetime import datetime
 from geo import us_states, geo_distance, make_position, longitude, latitude
@@ -46,6 +47,7 @@ def make_tweet(text, time, lat, lon):
     assert type(text) == str, "text must be a string"
     assert type(time) == datetime or time is None, "time must be either None or a datetime object"
     assert type(lat) in [float, int] and type(lon) in [float, int], "lat and lon must be either intger or float"
+    assert not any(x.isupper() for x in text), "text cannot have upper case letters"
     return [text, time, lat, lon]
 
 def tweet_text(tweet):
@@ -125,17 +127,8 @@ def extract_words(text):
     >>> extract_words('@(cat$.on^#$my&@keyboard***@#*')
     ['cat', 'on', 'my', 'keyboard']
     """
-    lst = []
-    currWd = ""
-    for s in text:
-        if s not in ascii_letters: # meet a non-ascii -> currwd ends
-            lst.append(currWd)
-            currWd = ""
-        else:
-            currWd += s
-    lst.append(currWd) # catch the last word
-    return [ s for s in lst if s != "" ] # lst has many "" elements
-
+    return re.findall("[" + ascii_letters + "]+",text) # this 1-liner works
+  
 ####################################################################
 # sentiment pseudo class 
 def make_sentiment(value):
@@ -291,10 +284,9 @@ def find_state_center(polygons):
     total_Cx, total_Cy = 0, 0
     for poly in polygons:
         Cx, Cy, area = find_centroid(poly)
-        total_Cx += Cx * area
-        total_Cy += Cy * area
+        total_Cx   += Cx * area
+        total_Cy   += Cy * area
         total_area += area
-
     return make_position( total_Cx/total_area, total_Cy/total_area) # weighted averages
 
 ###################################
@@ -313,9 +305,15 @@ def group_by_key(pairs):
     {1: [2, 3, 2], 2: [4], 3: [2, 1]}
     """
     # Optional: This implementation is slow because it traverses the list of
-    #           pairs one time for each key. Can you improve it?
+    #           pairs one time for each key. Can you improve it? 
+    """
     keys = [key for key, _ in pairs]
-    return {key: [y for x, y in pairs if x == key] for key in keys}
+    return {key: [y for x, y in pairs if x == key] for key in keys}"""
+    result = {}
+    for k,v in pairs:
+        if k in result: result[ k ].append(v)
+        else: result[ k ] = [v]
+    return result
 
 def group_tweets_by_state(tweets):
     """Return a dictionary that groups tweets by their nearest state center.
@@ -338,21 +336,18 @@ def group_tweets_by_state(tweets):
     '"welcome to san francisco" @ (38, -122)'
     """
     state_centers = {name: find_state_center(us_states[name]) for name in us_states }
-    
-    group = []
-    for tweet in tweets:
-        pos = tweet_location(tweet)
-        min_distance, min_state = None, None
-        for state_name in us_states:
-            state_center = find_state_center( us_states[state_name])
-            thisDistance = geo_distance(pos, state_center)
-            if min_distance is None or thisDistance < min_distance:
-                min_distance = thisDistance
-                min_state = state_name
-        group.append([min_state, tweet])
+    pairs = [[ find_state_ofThisTweet(tweet, state_centers), tweet] for tweet in tweets]
+    return group_by_key(pairs)        
 
-    return group_by_key(group)
-
+def find_state_ofThisTweet(tweet, state_centers):
+    pos = tweet_location(tweet)
+    min_distance, min_state = None, None # Track this tweet has min distance to which state center 
+    for state_name in us_states:
+        thisDistance = geo_distance(pos, state_centers[state_name])
+        if min_distance is None or thisDistance < min_distance:
+            min_distance = thisDistance
+            min_state = state_name
+    return min_state
 
 def average_sentiments(tweets_by_state):
     """Calculate the average sentiment of the states by averaging over all
@@ -367,9 +362,8 @@ def average_sentiments(tweets_by_state):
     Arguments:
     tweets_by_state -- A dictionary from state names to lists of tweets
     """
-
-    sent_dict = {} # key is state name, value is avg tweet sentiment score
-    for state_name in tweets_by_state.keys():
+    sent_dict = {} # key: state name, value: avg tweet sentiment score
+    for state_name in tweets_by_state:
         total_score = 0
         counter = 0 # count how many tweets have a real sentiment score
         for tweet in tweets_by_state[state_name]:
