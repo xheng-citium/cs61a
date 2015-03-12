@@ -58,6 +58,27 @@ class test_phase_1(unittest.TestCase):
         no_sentiment = trends.make_tweet('berkeley golden bears!', datetime(2014, 9, 29, 13), 0, 0)
         self.assertFalse( trends.has_sentiment( trends.analyze_tweet_sentiment(no_sentiment)))
 
+class test_phase_2(unittest.TestCase):
+    def test_find_centroid(self):
+        p1 = trends.make_position(1, 2)
+        p2 = trends.make_position(3, 4)
+        p3 = trends.make_position(5, 0)
+        triangle = [p1, p2, p3, p1] # First vertex is also the last vertex
+        round_all = lambda s: [round(x, 5) for x in s]
+        self.assertEqual( round_all( trends.find_centroid(triangle)), [3.0, 2.0, 6.0])
+        self.assertEqual( round_all( trends.find_centroid([p1, p3, p2, p1])), [3.0, 2.0, 6.0])
+        self.assertEqual( trends.apply_to_all(float, trends.find_centroid([p1, p2, p1])), [1.0, 2.0, 0.0])
+        self.assertEqual( trends.apply_to_all(float, trends.find_centroid([p2, p1, p2])), [3.0, 4.0, 0.0])
+
+    def test_find_state_center(self):
+        ca = trends.find_state_center(us_states['CA'])  # California
+        self.assertEqual( round(latitude(ca), 5), 37.25389)
+        self.assertEqual( round(longitude(ca), 5), -119.61439)
+
+        hi = trends.find_state_center(us_states['HI'])  # Hawaii
+        self.assertEqual( round(latitude(hi), 5), 20.1489)
+        self.assertEqual( round(longitude(hi), 5), -156.21763)
+    
 
 if __name__ == "__main__":
     unittest.main()

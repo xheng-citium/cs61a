@@ -249,32 +249,22 @@ def find_centroid(polygon):
     [1.0, 2.0, 0.0]
     """
 
-    area = area_polygon(polygon)
-    if area == 0.0: 
-        return [latitude(polygon[0]), longitude(polygon[0]), 0.0] 
-
     nSides = len(polygon) - 1
-    Cx, Cy = 0, 0
+    A, Cx, Cy = 0, 0, 0
     for i in range(nSides):
         currPos, nextPos = polygon[i], polygon[i+1]
-        x, y           = latitude(currPos), longitude(currPos)
-        x_next, y_next = latitude(nextPos), longitude(nextPos)
+        x, y             = latitude(currPos), longitude(currPos)
+        x_next, y_next   = latitude(nextPos), longitude(nextPos)
         Cx += (x + x_next)*(x*y_next - x_next*y)
         Cy += (y + y_next)*(x*y_next - x_next*y)
-    Cx = 1.0/6/area*Cx
-    Cy = 1.0/6/area*Cy
-    return [Cx, Cy, abs(area)]
-
-def area_polygon(polygon):
-    # returned area can be negative
-    nSides = len(polygon) - 1
-    A = 0
-    for i in range(nSides):
-        currPos, nextPos = polygon[i], polygon[i+1]
-        x, y           = latitude(currPos), longitude(currPos)
-        x_next, y_next = latitude(nextPos), longitude(nextPos)
         A += x*y_next - x_next * y
-    return 0.5 * A 
+    
+    if A == 0.0: 
+        return [latitude(polygon[0]), longitude(polygon[0]), 0.0] 
+    A = A * 0.5
+    Cx = 1.0/6/A*Cx
+    Cy = 1.0/6/A*Cy
+    return [Cx, Cy, abs(A)]
 
 def find_state_center(polygons):
     """Compute the geographic center of a state, averaged over its polygons.
@@ -305,7 +295,7 @@ def find_state_center(polygons):
         total_Cy += Cy * area
         total_area += area
 
-    return make_position( total_Cx/total_area, total_Cy/total_area)
+    return make_position( total_Cx/total_area, total_Cy/total_area) # weighted averages
 
 ###################################
 # Phase 3: The Mood of the Nation #
