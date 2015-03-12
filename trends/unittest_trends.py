@@ -81,6 +81,7 @@ class test_phase_2(unittest.TestCase):
         self.assertEqual( round(latitude(hi), 5), 20.1489)
         self.assertEqual( round(longitude(hi), 5), -156.21763)
 
+
 class test_phase_3(unittest.TestCase):
     def test_group_by_key(self): 
         example = [ [1, 2], [3, 2], [2, 4], [1, 3], [3, 1], [1, 2] ]
@@ -107,9 +108,25 @@ class test_phase_3(unittest.TestCase):
         self.assertTrue( "TX" in tweets_by_state and "TX" not in avg)
 
 class test_extra(unittest.TestCase):
+    def test_load_filter_tweets(self):
+        self.assertRaises(AssertionError,trends.load_filter_tweets,"sendwich", "tweets2015.txt", None) # data tile not exist
+
     def test_draw_map_for_query_by_hour(self):
-        self.assertRaises(AssertionError,trends.draw_map_for_query_by_hour, 26,"sendwich", "tweets2014.txt")
-        self.assertRaises(AssertionError,trends.draw_map_for_query_by_hour, 6,"sendwich", "tweets2013.txt")
+        self.assertRaises(AssertionError,trends.draw_map_for_query_by_hour,126,"sendwich", "tweets2014.txt") # invalid hour    
+    
+    def test_find_state_two_methods(self):
+        state_centers = {name: trends.find_state_center(us_states[name]) for name in us_states }
+        tweet = trends.make_tweet("austin tx", None, 30, -97)
+        self.assertEqual( trends.find_state_by_statecenter(tweet, state_centers), "TX")
+        self.assertEqual( trends.find_state_by_stateborders(tweet), "TX")
+        tweet = trends.make_tweet("nyc", None, 40.7127, -74.0059)
+        self.assertEqual( trends.find_state_by_statecenter(tweet, state_centers), "NJ")
+        self.assertEqual( trends.find_state_by_stateborders(tweet), "NY")
+        
+        tweet = trends.make_tweet("nanjing", None, 32.0, 118.8)
+        self.assertEqual(trends.find_state_by_statecenter(tweet, state_centers), "AK") # no mechanism to find this is not a US city
+        self.assertRaises(RuntimeError, trends.find_state_by_stateborders, tweet)
+
 
 if __name__ == "__main__":
     unittest.main()

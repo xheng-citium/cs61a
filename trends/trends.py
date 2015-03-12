@@ -2,8 +2,8 @@
 
 """Visualizing Twitter Sentiment Across America"""
 import pdb
-import re
-from data import word_sentiments, load_tweets
+import re, os
+from data import word_sentiments, load_tweets, DATA_PATH
 from datetime import datetime
 from geo import us_states, geo_distance, make_position, longitude, latitude
 try:
@@ -336,10 +336,10 @@ def group_tweets_by_state(tweets):
     '"welcome to san francisco" @ (38, -122)'
     """
     state_centers = {name: find_state_center(us_states[name]) for name in us_states }
-    pairs = [[ find_state_ofThisTweet(tweet, state_centers), tweet] for tweet in tweets]
-    return group_by_key(pairs)        
+    pairs = [[ find_state_by_statecenter(tweet, state_centers), tweet] for tweet in tweets]
+    return group_by_key(pairs)  
 
-def find_state_ofThisTweet(tweet, state_centers):
+def find_state_by_statecenter(tweet, state_centers):
     pos = tweet_location(tweet)
     min_distance, min_state = None, None # Track this tweet has min distance to which state center 
     for state_name in us_states:
@@ -348,6 +348,30 @@ def find_state_ofThisTweet(tweet, state_centers):
             min_distance = thisDistance
             min_state = state_name
     return min_state
+
+def find_state_by_stateborders(tweet):    
+    pos = tweet_location(tweet)
+    for name in us_states:
+        if any(is_inside_polygon(pos, polygon) for polygon in us_states[name]):
+            return name
+    raise RuntimeError("this tweet does not belong to any state of US")
+
+def is_inside_polygon(point, poly):
+    """This is modified from http://www.ariel.com.au/a/python-point-int-poly.html
+    It implements the Ray casting algorithm: http://en.wikipedia.org/wiki/Point_in_polygon"""
+    x, y = latitude(point), longitude(point)
+    inside = False
+    p1x, p1y = latitude(poly[0]), longitude(poly[0])
+    for i in range(len(poly)):
+        p2x, p2y = latitude(poly[i]), longitude(poly[i])
+        if (min(p1y,p2y) < y <= max(p1y,p2y)) and x <= max(p1x,p2x):
+            if p1y != p2y:
+                xinters = (y-p1y)*(p2x-p1x)/(p2y-p1y)+p1x # x coordinate of the intersection btween the horizontal ray and line:p1-p2
+            if p1x == p2x or x <= xinters: # p1 == p2x would have caused xinters = inf
+                inside = not inside
+        p1x, p1y = p2x, p2y
+
+    return inside # inside = True if flipped by an odd number of times; othrewise False
 
 def average_sentiments(tweets_by_state):
     """Calculate the average sentiment of the states by averaging over all
@@ -431,13 +455,17 @@ def draw_map_of_selected_tweets(tweets):
     tweets_by_state = group_tweets_by_state(tweets)
     state_sentiments = average_sentiments(tweets_by_state)
     draw_state_sentiments(state_sentiments)
+    total = []
     for tweet in tweets:
         s = analyze_tweet_sentiment(tweet)
         if has_sentiment(s):
             draw_dot(tweet_location(tweet), sentiment_value(s))
+            total.append(sentiment_value(s))
+    print ("National average of all selected tweets: %.4f" %(sum(total)/len(total)) )
     wait()
 
 def load_filter_tweets(term, file_name, filter_fn, *args):
+    assert os.path.isfile(DATA_PATH + file_name), "Invalid file name"
     tweets = load_tweets(make_tweet, term, file_name)
     if filter_fn is None: 
         return tweets
