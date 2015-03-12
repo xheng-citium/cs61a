@@ -7,6 +7,8 @@ from collections import OrderedDict
 from data import word_sentiments, load_tweets, DATA_PATH
 from datetime import datetime
 from geo import us_states, geo_distance, make_position, longitude, latitude
+from macros import FIND_STATE, CARE_EMOTION_SYMBOL, EMOTION_VALUES, RUN_SPELL_CORRECTOR, NWORDS
+
 try:
     import tkinter
     from maps import draw_state, draw_name, draw_dot, wait
@@ -17,15 +19,6 @@ except ImportError as e:
 from string import ascii_letters
 from ucb import main, trace, interact, log_current_line
 
-#######################################
-# constants 
-#######################################
-# a dictionary of emotion symbols and their values
-emotion_value = OrderedDict()
-emotion_value[":)"]  =  0.6 
-emotion_value[":-)"] =  0.7 
-emotion_value[":("]  = -0.5
-emotion_value[":-("] = -0.6
 
 ###################################
 # Phase 1: The Feelings in Tweets #
@@ -121,17 +114,22 @@ def tweet_string(tweet):
 
 def tweet_words(tweet):
     """Return the words in a tweet."""
-    return extract_words(tweet_text(tweet))
+    if CARE_EMOTION_SYMBOL:
+        return extract_words_with_emotion( tweet_text(tweet))
+    else:
+        return extract_words(tweet_text(tweet))
 
-def extract_words(text, care_emotion_symbol=False):
+def extract_words(text):
     """Return the words in a tweet, not including punctuation """
-    words = re.findall("[" + ascii_letters + "]+",text) 
-    if care_emotion_symbol:
-        for key in emotion_value:
-            emot = re.escape(key) # convert special metacharacter like ( and )
-            words += re.findall( emot, text)
+    return re.findall("[" + ascii_letters + "]+",text) 
 
+def extract_words_with_emotion(text):   
+    words = re.findall("[" + ascii_letters + "]+",text) 
+    for key in EMOTION_VALUES:
+        emot = re.escape(key) # convert special metacharacter like ( and )
+        words += re.findall( emot, text)
     return  words 
+
 ####################################################################
 # sentiment pseudo class 
 def make_sentiment(value):
@@ -167,14 +165,20 @@ def sentiment_value(s):
     return s("value")
 
 ######################################################################
+
 def get_word_sentiment(word):
     """Return a sentiment representing the degree of positive or negative
     feeling in the given word.
     """
     # Learn more: http://docs.python.org/3/library/stdtypes.html#dict.get
-    if word in emotion_value:
-        return make_sentiment(emotion_value[word])
-    return make_sentiment(word_sentiments.get(word))
+    if word in EMOTION_VALUES:
+        return make_sentiment(EMOTION_VALUES[word])
+    else:
+        if RUN_SPELL_CORRECTOR: 
+            corrected = spell_corrector(word)
+        else: 
+            corrected = word
+        return make_sentiment(word_sentiments.get(corrected))
 
 def analyze_tweet_sentiment(tweet):
     """Return a sentiment representing the degree of positive or negative
@@ -330,8 +334,15 @@ def group_tweets_by_state(tweets):
     >>> tweet_string(california_tweets[0])
     '"welcome to san francisco" @ (38, -122)'
     """
-    state_centers = {name: find_state_center(us_states[name]) for name in us_states }
-    pairs = [[ find_state_by_statecenter(tweet, state_centers), tweet] for tweet in tweets]
+    if FIND_STATE == "by_statecenter":
+        state_centers = {name: find_state_center(us_states[name]) for name in us_states }
+        pairs = [[ find_state_by_statecenter(tweet, state_centers), tweet] for tweet in tweets]
+    elif FIND_STATE == "by_stateborders":
+        pairs = []
+        for tweet in tweets:
+           found_state = find_state_by_stateborders(tweet)
+           if found_state is not None: 
+               pairs.append([found_state, tweet])
     return group_by_key(pairs)  
 
 def find_state_by_statecenter(tweet, state_centers):
@@ -349,7 +360,7 @@ def find_state_by_stateborders(tweet):
     for name in us_states:
         if any(is_inside_polygon(pos, polygon) for polygon in us_states[name]):
             return name
-    raise RuntimeError("this tweet does not belong to any state of US")
+    return None
 
 def is_inside_polygon(point, poly):
     """This is modified from http://www.ariel.com.au/a/python-point-int-poly.html
@@ -359,7 +370,7 @@ def is_inside_polygon(point, poly):
     p1x, p1y = latitude(poly[0]), longitude(poly[0])
     for i in range(len(poly)):
         p2x, p2y = latitude(poly[i]), longitude(poly[i])
-        if (min(p1y,p2y) < y <= max(p1y,p2y)) and x <= max(p1x,p2x):
+        if (min(p1y,p2y) < y <= max(p1y,p2y)) and x <= max(p1x, p2x):
             if p1y != p2y:
                 xinters = (y-p1y)*(p2x-p1x)/(p2y-p1y)+p1x # x coordinate of the intersection btween the horizontal ray and line:p1-p2
             if p1x == p2x or x <= xinters: # p1 == p2x would have caused xinters = inf
@@ -393,6 +404,50 @@ def average_sentiments(tweets_by_state):
         if counter > 0:
             sent_dict[state_name] = total_score / counter 
     return sent_dict
+
+##############################
+# Implement spell corrector
+##############################
+def edits1(word):
+    """Main algorithm of the approach
+    returns possible corrections, which is made of 
+        delete a letter at possible locations
+        transpose adjacent letters
+        replace each letter by a letter from a-z
+        inserts a-z into all possible locations of the word"""
+    alphabet = 'abcdefghijklmnopqrstuvwxyz'
+    splits     = [(word[:i], word[i:]) for i in range(len(word) + 1)]
+    deletes    = [a + b[1:] for a, b in splits if b]
+    transposes = [a + b[1] + b[0] + b[2:] for a, b in splits if len(b)>1]
+    replaces   = [a + c + b[1:] for a, b in splits for c in alphabet if b]
+    inserts    = [a + c + b     for a, b in splits for c in alphabet]
+    return set(deletes + transposes + replaces + inserts)
+
+def known_edits2(word):
+    """ Based on edits1 algorithm, do it on the 2nd order level 
+    Returns all possible corrections
+    """
+    return set(e2 for e1 in edits1(word) for e2 in edits1(e1) if e2 in NWORDS)
+
+def known_edits3(word):
+    """ Based on edits1 algorithm, do it on the 3rd order level 
+    Returns all possible corrections
+    """
+    return set(e3 for e1 in edits1(word) for e2 in edits1(e1) for e3 in edits1(e2) if e3 in NWORDS)
+
+def known(words):
+    return set(w for w in words if w in NWORDS)
+
+def spell_corrector(word, order=1):
+    """"Modified from http://norvig.com/spell-correct.html """
+    # Return the first occurence that the set is not empty
+    if order == 3: # very slow on large set
+        candidates = known([word]) or known(edits1(word)) or known_edits2(word) or known_edits3(word) or [word]
+    elif order == 2:
+        candidates = known([word]) or known(edits1(word)) or known_edits2(word) or [word]
+    elif order == 1:
+        candidates = known([word]) or known(edits1(word)) or [word]
+    return max(candidates, key = NWORDS.get) # Find which word appears the most frequent
 
 ##########################
 # Command Line Interface #
@@ -445,6 +500,8 @@ def draw_state_sentiments(state_sentiments):
         if center is not None:
             draw_name(name, center)
 
+##################################################################################
+"""Implement draw_map_for_query_by_hour() and keep original draw_map_for_query()"""
 @uses_tkinter
 def draw_map_of_selected_tweets(tweets):
     tweets_by_state = group_tweets_by_state(tweets)
@@ -452,11 +509,16 @@ def draw_map_of_selected_tweets(tweets):
     draw_state_sentiments(state_sentiments)
     total = []
     for tweet in tweets:
+        if FIND_STATE=="by_stateborders" and find_state_by_stateborders(tweet) is None: # Not in US territory
+            continue
         s = analyze_tweet_sentiment(tweet)
         if has_sentiment(s):
             draw_dot(tweet_location(tweet), sentiment_value(s))
             total.append(sentiment_value(s))
-    print ("National average of all selected tweets: %.4f" %(sum(total)/len(total)) )
+    if len(total) > 0:
+        print ("National average of all selected tweets: %.8f" %(sum(total)/len(total)) )
+    else:
+        print ("Selected tweets are not in US territory")
     wait()
 
 def load_filter_tweets(term, file_name, filter_fn, *args):
@@ -466,6 +528,7 @@ def load_filter_tweets(term, file_name, filter_fn, *args):
         return tweets
     return filter_fn(tweets, *args)
 
+@uses_tkinter
 def draw_map_for_query(term='my job', file_name='tweets2014.txt'):
     """Draw the sentiment map corresponding to the tweets that contain term.
     Some term suggestions:
@@ -504,6 +567,11 @@ def run(*args):
     parser.add_argument('text', metavar='T', type=str, nargs='*',
                         help='Text to process')
     args = parser.parse_args()
+    
+    print("\nMacro variable choices:") 
+    for s in ["FIND_STATE", "CARE_EMOTION_SYMBOL", "RUN_SPELL_CORRECTOR"]:
+        print(s," = ", eval(s))
+
     if args.use_functional_tweets:
         swap_tweet_representation()
         print("Now using a functional representation of tweets!")
@@ -522,3 +590,5 @@ def run(*args):
     for name, execute in args.__dict__.items():
         if name != 'text' and name != 'tweets_file' and execute:
             globals()[name](' '.join(args.text))
+
+

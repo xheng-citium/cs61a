@@ -34,10 +34,8 @@ class test_phase_1(unittest.TestCase):
     def test_extract_words(self):
         self.assertEqual( trends.extract_words('     anything else.....  ? not my job'), ['anything', 'else', 'not', 'my', 'job'])
         self.assertEqual( trends.extract_words('i don\'t love my car. #winning#?  '), ['i', 'don', 't', 'love', 'my', 'car', 'winning'])
-        self.assertEqual( trends.extract_words('make justin # 1 by tweeting #vma #justinbieber :)', care_emotion_symbol = False), ['make', 'justin', 'by', 'tweeting', 'vma', 'justinbieber'])
         self.assertEqual( trends.extract_words('@(cat$.on^#$my&@keyboard***@#*'), ['cat', 'on', 'my', 'keyboard'])
-        # Extra
-        self.assertEqual( trends.extract_words("this is#austin:) texas :( :)", care_emotion_symbol=True), ["this", "is", "austin", "texas", ":)", ":)", ":("])
+        self.assertEqual( trends.extract_words('make justin # 1 by tweeting #vma #justinbieber :)'), ['make', 'justin', 'by', 'tweeting', 'vma', 'justinbieber'])
     
     def test_make_sentiment(self):
         positive = trends.make_sentiment(0.2)
@@ -58,7 +56,7 @@ class test_phase_1(unittest.TestCase):
         self.assertEqual( trends.sentiment_value(trends.get_word_sentiment('good')), 0.875)
         self.assertEqual( trends.sentiment_value(trends.get_word_sentiment('bad')), -0.625)
         self.assertEqual( trends.sentiment_value(trends.get_word_sentiment('winning')), 0.5)
-        self.assertFalse( trends.has_sentiment( trends.get_word_sentiment('Berkeley')))
+        self.assertFalse( trends.has_sentiment( trends.get_word_sentiment('berkeley')))
         self.assertEqual( trends.sentiment_value(trends.get_word_sentiment(':)')), 0.6)
         self.assertEqual( trends.sentiment_value(trends.get_word_sentiment(':(')), -0.5)
 
@@ -122,7 +120,11 @@ class test_extra(unittest.TestCase):
         self.assertRaises(AssertionError,trends.load_filter_tweets,"sendwich", "tweets2015.txt", None) # data tile not exist
 
     def test_draw_map_for_query_by_hour(self):
-        self.assertRaises(AssertionError,trends.draw_map_for_query_by_hour,126,"sendwich", "tweets2014.txt") # invalid hour    
+        self.assertRaises(AssertionError,trends.draw_map_for_query_by_hour,126,"sendwich", "tweets2014.txt") # invalid hour
+
+    def test_extract_with_emotion(self):
+        self.assertEqual( trends.extract_words_with_emotion( 'make justin # 1 by tweeting #vma #justinbieber :)'), ['make', 'justin', 'by', 'tweeting', 'vma', 'justinbieber', ":)"])
+        self.assertEqual( trends.extract_words_with_emotion( "this is#austin:) texas :( :)"), ["this", "is", "austin", "texas", ":)", ":)", ":("])
     
     def test_find_state_two_methods(self):
         state_centers = {name: trends.find_state_center(us_states[name]) for name in us_states }
@@ -135,7 +137,36 @@ class test_extra(unittest.TestCase):
         
         tweet = trends.make_tweet("nanjing", None, 32.0, 118.8)
         self.assertEqual(trends.find_state_by_statecenter(tweet, state_centers), "AK") # no mechanism to find this is not a US city
-        self.assertRaises(RuntimeError, trends.find_state_by_stateborders, tweet)
+        self.assertEqual( trends.find_state_by_stateborders(tweet), None)
+
+    def test_is_inside_polygon(self):
+        point = make_position(0.1, 0.5)
+        p1 = make_position(0, 0)
+        p2 = make_position(0, 2)
+        p3 = make_position(2, 2)
+        p4 = make_position(2, 0)
+        self.assertTrue(trends.is_inside_polygon(point, [p1, p2, p3, p1])) # inside triangle, crossing a vertical edge
+        self.assertTrue(trends.is_inside_polygon(point, [p1, p2, p4, p1])) # crossing a slanted edge
+
+        point = make_position(0.5, 0.1)
+        self.assertFalse(trends.is_inside_polygon(point, [p1, p2, p3, p1])) # outside
+        
+        point = make_position(1, 1)
+        self.assertTrue(trends.is_inside_polygon(point, [p1, p2, p3, p1])) # on the left edge
+
+        point = make_position(2, 2)
+        self.assertTrue(trends.is_inside_polygon(point, [p1, p2, p3, p1])) # at the top vertex
+        
+        point = make_position(0, 2)
+        self.assertFalse(trends.is_inside_polygon(point, [p1, p2, p3, p1])) # at the bottom-right vertex
+
+    def test_spell_corrector(self):
+        self.assertEqual( trends.spell_corrector("dude"), "due")
+        self.assertEqual( trends.spell_corrector("goold"), "good")
+        self.assertNotEqual( trends.spell_corrector("goold"), "gold")
+        self.assertEqual( trends.spell_corrector("speling"), "spelling")
+        self.assertEqual( trends.spell_corrector("austine"), "austin")
+        self.assertNotEqual( trends.spell_corrector("heng"), "heng")
 
 
 if __name__ == "__main__":
