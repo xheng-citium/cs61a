@@ -171,7 +171,6 @@ class Ant(Insect):
         """self is a container, other is not and self's container is empty"""
         return self.container and (not other.container) and (self.ant is None)
 
-
 class HarvesterAnt(Ant):
     """HarvesterAnt produces 1 additional food per turn for the colony."""
 
