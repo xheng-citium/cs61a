@@ -69,14 +69,14 @@ class Place:
             If Bodyguard protects a fellow ant, it drops first and then its fellow -> pass 
         """
         if insect.name == "Queen" and insect.firstQueenAnt:
-            return
+            return # cannot drop the first QueenAnt
         if insect.is_ant:
             # Phase 4: Special handling for BodyguardAnt and QueenAnt
-            if insect.container and insect.ant is not None: # insect is a Bodyguard instance, which is also protecting another
+            if insect.container and insect.ant is not None: # insect is a Bodyguard instance, and is also protecting another
                 self.ant = insect.ant
             else:
                 assert self.ant == insect, '{0} is not in {1}'.format(insect, self)
-                self.ant = None # Animation shows ant drops out of screen
+                self.ant = None 
         else:
             self.bees.remove(insect)
 
@@ -206,10 +206,10 @@ class ThrowerAnt(Ant):
         This method returns None if there is no such Bee (or none in range).
         """
         this_place = self.place
-        counter = 0 # record 
+        curr_range = 0 # record current range 
         while this_place is not hive:
-            counter += 1
-            if counter <= self.max_range and counter >= self.min_range: 
+            curr_range += 1
+            if curr_range <= self.max_range and curr_range >= self.min_range: 
                 if len(this_place.bees) > 0:
                     return random_or_none(this_place.bees)
             this_place = this_place.entrance
@@ -478,27 +478,25 @@ class FireAnt(Ant):
     implemented = True
 
     def reduce_armor(self, amount):
-        for b in list(self.place.bees): # copy all the bees in this place
-            b.reduce_armor(amount) 
-    
-    def action(self, colony):
+        self.armor -= amount
         if self.armor <= 0:
-            self.reduce_armor(self.damage)
+            for b in list(self.place.bees):
+                b.reduce_armor(self.damage)
+            self.place.remove_insect(self) # remove FireAnt itself
 
 
 class LongThrower(ThrowerAnt):
     """A ThrowerAnt that only throws leaves at Bees at least 4 places away."""
     name = 'Long'
     food_cost = 3
-    min_range = 4
+    min_range = 5
     implemented = True
 
 class ShortThrower(ThrowerAnt):
     """A ThrowerAnt that only throws leaves at Bees less than 3 places away."""
-
     name = 'Short'
     food_cost = 3
-    max_range = 3
+    max_range = 2
     implemented = True
 
 # The WallAnt class
