@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import argparse
 import unittest
 import pdb
 import ants
@@ -34,18 +35,18 @@ class test_phase_2(unittest.TestCase):
     def test_Water(self):
         bee = ants.Bee(armor = 1)
         self.assertTrue(bee.watersafe)
-        waterplace = ants.Water("bla")
+        waterplace = ants.Water("A")
         waterplace.add_insect(bee)
         self.assertTrue(bee.armor == 1)
 
         harv = ants.HarvesterAnt()
-        waterplace = ants.Water("bla")
+        waterplace = ants.Water("A")
         waterplace.add_insect(harv)
         self.assertTrue(harv.armor == 0)
 
     def test_FireAnt(self):
         """Procedure: Create a Place, and put a FireAnt and a Bee inside. When FireAnt is dead, Bee armor is reduced by a certain damage level"""
-        place = ants.Place(name = "bla")
+        place = ants.Place(name = "A")
         fire = ants.FireAnt(armor=2)
         bee_1 = ants.Bee(armor = 3, place=place)
         
@@ -61,7 +62,10 @@ class test_phase_2(unittest.TestCase):
     
     def test_nearest_bee(self):
         """Create a colony and put a ThrowerAnt and several bees in tunnel cells
-        Randomness has been verified by running unit test several times"""
+        Randomness has been verified by running unit test several times
+        Note:
+          I use colony.places["tunnel_0_0"].add_insect(thrower_0) to add a ThrowerAnt
+          There seems an equivalent way: colony.deploy_ant('tunnel_0_0', 'Thrower')"""
         colony = create_colony() 
         thrower_0, thrower_1 = ants.ThrowerAnt(), ants.ThrowerAnt()
         bee_0, bee_1, bee_2, bee_3 = ants.Bee(armor=1), ants.Bee(armor=1), ants.Bee(armor=1), ants.Bee(armor=1)
@@ -139,7 +143,7 @@ class test_phase_3(unittest.TestCase):
     def test_Scuba(self):
         scuba = ants.ScubaThrower()
         self.assertTrue(scuba.watersafe)
-        waterplace = ants.Water("bla")
+        waterplace = ants.Water("A")
         orig_armor = scuba.armor
         waterplace.add_insect(scuba)
         self.assertTrue(scuba.armor == orig_armor)
@@ -166,19 +170,137 @@ class test_phase_3(unittest.TestCase):
                 self.assertEqual(bee_1.armor, 0) 
             counter += 1
         
+class test_phase_4(unittest.TestCase):
+    def test_Bodyguard(self):
+        body = ants.BodyguardAnt()
+        thrower, thrower_1 = ants.ThrowerAnt(), ants.ThrowerAnt()
+        self.assertEqual(body.armor, 2)
+        self.assertTrue(body.container)
+        self.assertTrue(body.can_contain(thrower))
+        self.assertFalse(body.can_contain(ants.BodyguardAnt())) # cannot contain another BodyguardAnt
+        self.assertFalse(thrower.container)
+        self.assertFalse(thrower.can_contain(body))
+        self.assertFalse(thrower.can_contain(thrower_1))
         
+        # Insert Bodyguard first
+        place = ants.Place(name = "A")
+        place.add_insect(body)
+        place.add_insect(thrower)
+        self.assertFalse(body.can_contain(thrower_1)) # already protecting thrower
+        self.assertEqual(body.ant, thrower)
+        
+        # Insert HarvesterAnt first, and then Bogyguard
+        place = ants.Place(name = "B")
+        body, harv = ants.BodyguardAnt(), ants.HarvesterAnt()
+        place.add_insect(harv)
+        place.add_insect(body)
+        self.assertEqual(place.ant, body) # body is the ant, harv is protected/hidden
+        self.assertEqual(body.ant, harv)
+        
+        # Bodyguard should protect until it dies
+        colony = create_colony()
+        bee, body, harv = ants.Bee(armor=1), ants.BodyguardAnt(), ants.HarvesterAnt()
+        colony.places["tunnel_0_5"].add_insect(bee)
+        colony.places["tunnel_0_5"].add_insect(harv)
+        colony.places["tunnel_0_5"].add_insect(body)
+        orig_armor_body, orig_armor_harv = body.armor, harv.armor
+        counter = 0 
+        while body.armor > 0:
+            bee.action(colony)
+            counter += 1
+        self.assertEqual(counter, orig_armor_body)
+        self.assertEqual(body.armor, 0)
+        self.assertTrue(colony.places["tunnel_0_5"].ant == harv) # Now body is dead, harv takes its place
+        self.assertEqual(harv.armor, orig_armor_harv)
+        bee.action(colony)
+        self.assertEqual(harv.armor, 0)
+    
+    def test_imposter_and_unmovable_first_queen(self): 
+        ants.QueenAnt.ctr_QueenAnt = 0 # ensure queenant is first queen
+        queenant = ants.QueenAnt()
+        self.assertTrue(queenant.firstQueenAnt)
+        colony = create_colony()
+        colony.places["tunnel_0_4"].add_insect(queenant)
 
+        imposter = ants.QueenAnt()
+        self.assertFalse(imposter.firstQueenAnt)
+        colony.places["tunnel_0_5"].add_insect(imposter)
+        self.assertEqual(imposter.armor, 1)
+        imposter.action(colony)
+        self.assertEqual(imposter.armor, 0) # die upon taking the first action()
+
+        colony.places["tunnel_0_4"].remove_insect(queenant) # Unmovable first queen
+        self.assertEqual(colony.places["tunnel_0_4"].ant, queenant)
+
+    def test_dying_QueenAnt(self):
+        ants.QueenAnt.ctr_QueenAnt = 0 # ensure queenant is first queen
+        queenant = ants.QueenAnt()
+        colony = create_colony()
+        colony.places["tunnel_0_4"].add_insect(queenant)
+        colony.places["tunnel_0_5"].add_insect(ants.Bee(armor=5))
+        queenant.action(colony) # part of action() is to update colony.queen and search bees
+        self.assertTrue(type(colony.queen), ants.QueenPlace)
+        self.assertEqual(len(colony.queen.bees), 0)
+
+        colony.places["tunnel_0_4"].add_insect(ants.BodyguardAnt() ) # Bodyguard should not help
+        colony.places["tunnel_0_4"].add_insect(ants.Bee(armor=10))
+        queenant.action(colony)
+        self.assertTrue(len(colony.queen.bees) > 0)
+
+    def test_double_damage(self):  
+        ants.QueenAnt.ctr_QueenAnt = 0 # ensure queenant is first queen
+        queenant = ants.QueenAnt()
+        self.assertTrue(queenant.firstQueenAnt)
+        thrower, ninja, body = ants.ThrowerAnt(), ants.NinjaAnt(), ants.BodyguardAnt()
+        orig_damages = [queenant.damage, thrower.damage, ninja.damage, body.damage]
+        
+        colony = create_colony()
+        colony.places["tunnel_0_5"].add_insect(thrower)
+        colony.places["tunnel_0_5"].add_insect(body)
+        colony.places["tunnel_0_1"].add_insect(ninja)
+        colony.places["tunnel_0_3"].add_insect(queenant)
+        
+        queenant.action(colony)
+        self.assertEqual(queenant.damage, orig_damages[0]) # QueenAnt should not double herself
+        self.assertEqual(thrower.damage,2*orig_damages[1])
+        self.assertEqual(ninja.damage,  2*orig_damages[2])
+        
+        for ant in queenant.doubled_ants: # Ensure doubled_ants list is correct
+            self.assertTrue(ant.name in ["Thrower", "Ninja"])
+            self.assertFalse(ant.name=="Bodyguard") # Bodyguard should not be in, b/s it protects ThrowerAnt
+            self.assertFalse(ant.name=="Queen")
+        
+        # Damage levels should not double again in the 2nd action()
+        queenant.action(colony)
+        self.assertEqual(queenant.damage, orig_damages[0]) 
+        self.assertEqual(thrower.damage,2*orig_damages[1])
+        self.assertEqual(ninja.damage,  2*orig_damages[2])
+
+        queenant.check_ants_damage_levels() # Nothing to assert but to verify Thrower and Ninja damage doubled to 2
+
+    def test_run_fn_over_entire_tunnel(self):    
+        ants.QueenAnt.ctr_QueenAnt = 0 # ensure queenant is first queen
+        queenant = ants.QueenAnt()
+        
+        colony = create_colony()
+        colony.places["tunnel_0_3"].add_insect(queenant)
+        
+        print("\nVerify the run_fn_over_entire_tunnel() follows the right sequence")
+        print_place = lambda p: print(p.name)
+        queenant.run_fn_over_entire_tunnel(print_place) # Nothing to assert but to ensure the sequence is 3,4,5,6,7, Hive,3,2,1,0,AntQueen
 
 
 ##############################################################
+# Utilities and helpers
 def create_colony():
     assault_plan = ants.make_test_assault_plan()
     hive = ants.Hive(assault_plan)
     ant_types = [ants.HarvesterAnt, ants.ThrowerAnt, ants.FireAnt, ants.ShortThrower, ants.LongThrower, 
                  ants.WallAnt, ants.NinjaAnt, ants.ScubaThrower, ants.HungryAnt, ants.BodyguardAnt,
                  ants.QueenAnt, ants.SlowThrower, ants.StunThrower]
-    return (ants.AntColony(None, hive, ant_types, ants.test_layout, 1))
+    return ants.AntColony(None, hive, ant_types, ants.test_layout, 10)
 
 
 if __name__ == "__main__":
+    # unittest.main(verbosity=0, buffer=True, exit=False) # If want to suppress stdout
     unittest.main()

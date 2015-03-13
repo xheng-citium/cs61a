@@ -4,27 +4,20 @@ import random
 import sys
 from ucb import main, interact, trace
 from collections import OrderedDict
-
-import pdb
+import copy, pdb
 
 """
-Xin note: 
+Xin note:
     Various locations reach in, e.g. place.name directly calls member variable
-    Insect holds a Place instance, and Place holds Insect instances
-    What makes an animation of insect dropping out of its Place?
-    Quite a few locations show pass-by-reference 
 """
 ################
 # Core Classes #
 ################
-debug = True
-
 class Place:
     """A Place holds insects and has an exit to another Place."""
 
     def __init__(self, name, exit=None):
         """Create a Place with the given exit.
-
         name -- A string; the name of this Place.
         exit -- The Place reached by exiting this Place (may be None).
         """
@@ -39,24 +32,23 @@ class Place:
 
     def add_insect(self, insect):
         """Add an Insect to this Place.
-
         There can be at most one Ant in a Place, unless exactly one of them is
         a BodyguardAnt (Phase 4), in which case there can be two. If add_insect
         tries to add more Ants than is allowed, an assertion error is raised.
-
         There can be any number of Bees in a Place.
         """
         if insect.is_ant:
             # Phase 4: Special handling for BodyguardAnt
-            if self.ant is not None:  
+            assert (self.ant is None) or self.ant.can_contain(insect) or insect.can_contain(self.ant),\
+                    '{0} is full. It cannot insert new ant.'.format(self)
+            
+            if self.ant is None: self.ant = insect
+            else:
                 if self.ant.can_contain(insect): # self.ant can contain
                     self.ant.contain_ant(insect)
-                else:                         
-                    if insect.can_contain(self.ant): # insect can contain
-                        insect.contain_ant(self.ant)
-                        self.ant = insect
-            else:
-                self.ant = insect
+                elif insect.can_contain(self.ant): 
+                    insect.contain_ant(self.ant)
+                    self.ant = insect
         else:
             self.bees.append(insect)
         insect.place = self
@@ -72,7 +64,7 @@ class Place:
             return # cannot drop the first QueenAnt
         if insect.is_ant:
             # Phase 4: Special handling for BodyguardAnt and QueenAnt
-            if insect.container and insect.ant is not None: # insect is a Bodyguard instance, and is also protecting another
+            if insect.container and insect.ant is not None: # insect is a Bodyguard, and is protecting other
                 self.ant = insect.ant
             else:
                 assert self.ant == insect, '{0} is not in {1}'.format(insect, self)
@@ -99,7 +91,6 @@ class Insect:
     def reduce_armor(self, amount):
         """Reduce armor by amount, and remove the insect from its place if it
         has no armor remaining.
-
         >>> test_insect = Insect(5)
         >>> test_insect.reduce_armor(2)
         >>> test_insect.armor
@@ -138,9 +129,7 @@ class Bee(Insect):
     def blocked(self):
         """Return True if this Bee cannot advance to the next Place."""
         # Phase 3: Special handling for NinjaAnt
-        if self.place.ant is not None and self.place.ant.blocks_path:
-            return True
-        return False
+        return self.place.ant is not None and self.place.ant.blocks_path
 
     def action(self, colony):
         """A Bee's action stings the Ant that blocks its exit if it is blocked,
@@ -168,7 +157,8 @@ class Ant(Insect):
         Insect.__init__(self, armor)
     
     def can_contain(self, other): # problem 8 
-        """self is a container, other is not and self's container is empty"""
+        """self is a container, other is not and self's container is empty
+        i.e. even if self is a container, it ma not be able to contain other right now"""
         return self.container and (not other.container) and (self.ant is None)
 
 class HarvesterAnt(Ant):
@@ -556,7 +546,8 @@ class HungryAnt(Ant):
             self.digesting = self.time_to_digest
 
 class BodyguardAnt(Ant):
-    """BodyguardAnt provides protection to other Ants."""
+    """BodyguardAnt provides protection to other Ants.
+    damage level is 0"""
     name = 'Bodyguard'
     food_cost = 4
     container   = True # Can contain other ants
@@ -590,54 +581,65 @@ class QueenPlace:
 
 class QueenAnt(ScubaThrower):  
     """The Queen of the colony.  The game is over if a bee enters her place."""
-
     name = 'Queen'
     food_cost = 6
-    num_QueenAnt = 0
-    checkLevels = True # whether to check damage levels of fellow ants
+    ctr_QueenAnt = 0 # Counter of how many QueenAnt there are
     implemented = True
 
     def __init__(self):
         ScubaThrower.__init__(self, armor=1)
         
-        QueenAnt.num_QueenAnt += 1
-        if QueenAnt.num_QueenAnt == 1:
-            self.firstQueenAnt = True
-            self.has_doubled_damage = False
-            self.doubled_ants = [] # track what ants have been doubled
-        else:
-            self.firstQueenAnt = False
+        self.has_doubled_damage = False # track if QueenAnt has doubled damage of fellow ants
+        self.doubled_ants = [] # track what ants have been doubled
+
+        QueenAnt.ctr_QueenAnt += 1
+        if QueenAnt.ctr_QueenAnt == 1: self.firstQueenAnt = True
+        else: self.firstQueenAnt = False # Imposter
 
     def action(self, colony):
-        """
+        """ Main function of the class
         A queen ant throws a leaf, but also doubles the damage of ants in her tunnel.
         Impostor queens do only one thing: reduce their own armor to 0.
         Four steps:
-            1: self reduce armor is an imposter queen
-            2: record locations of colony queen and QueenAnt -> needed by an early game over
-            3: throw a leaf
-            4: double damanges of fellow ants only once
+            1: self-kill if is an imposter queen
+            2: throw a leaf
+            3: double damanges of fellow ants only once
+            4: record locations of colony queen and QueenAnt -> needed by an early game over
         """
-
-        if not self.firstQueenAnt: # if an imposter queen
+        # 1. sell kill if imposter queen
+        if not self.firstQueenAnt: 
             self.reduce_armor(self.armor)
             return
-        colony.queen = QueenPlace(colony.queen, self) # Track both colony queen and QueenAnt
-                                                      # Trigger a game over if found 1 bee
-
+        
+        # 2. Throws a leaf
         ScubaThrower.action(self, colony)
-        if not self.has_doubled_damage: # do it once and only once
-            #self.doubleDamage_fellowAnts()
-            self.run_fn_over_entire_tunnel(self.doubleDamage_atPlace)
+        
+        # 3 Reach into the if statement once and only
+        if not self.has_doubled_damage:
+            self.run_fn_over_entire_tunnel(self.double_damage_at_this_place) # run function in entire tunnel
             self.has_doubled_damage = True
+        
+        # 4 Track both colony queen and QueenAnt; Trigger a game over if find a bee
+        colony.queen = QueenPlace(colony.queen, self)
 
-        if debug and QueenAnt.checkLevels: 
-            self.check_ants_damage_levels()
+    def double_damage_at_this_place(self, this_place):
+        """ If found an ant at this place, Double its damage """
+        if this_place.ant is None or this_place.ant.name == "Queen": return # do not double QueenAnt herself
 
+        # this_ant = which ant to double
+        if this_place.ant.container:
+            if this_place.ant.ant is not None: # protected ant
+                this_ant = this_place.ant.ant
+            else: this_ant = None # A standalone container, i.e. Bodyguard does not double damage
+        else:
+            this_ant = this_place.ant
+        
+        if this_ant is not None:
+            this_ant.damage *= 2
+            self.doubled_ants.append(this_ant) # maintain a list of doubled ants
+       
     def run_fn_over_entire_tunnel(self, fn):   
-        """ 
-        Run the given function over the tunnel in both directions sequentially
-        """
+        """Run the given function over the tunnel in both directions sequentially"""
         this_place = self.place
         while this_place is not None:
             fn(this_place)
@@ -647,51 +649,23 @@ class QueenAnt(ScubaThrower):
         while this_place is not None:
             fn(this_place)
             this_place = this_place.exit
-        return
-
-    def doubleDamage_atPlace(self, this_place):
-        """
-        If found an ant at this place, Double its damage
-        Note that changes made on this_ant is passed to this_place -> xx
-        """
-        if this_place.ant is None or this_place.ant.name == "Queen":
-            return
-
-        # Find which ant to double and add it to doubled_ants list
-        if this_place.ant.container:
-            if this_place.ant.ant is not None: # protected ant
-                this_ant = this_place.ant.ant
-            else: 
-                this_ant = None
-        else:
-            this_ant = this_place.ant
-        
-        if this_ant is not None:
-            this_ant.damage *= 2
-            if debug: print(this_ant.name, "damage doubled to", this_ant.damage)
-            self.doubled_ants.append(this_ant) # maintain a list of doubled ants
-        return
     
-    """
-    Three purposes for the below check on ants damage levels
-        1: verify ant damange is indeeded doubled
+    """ Three purposes for the below check on ants damage levels
+        1: Verify ant damange is indeeded doubled
         2. practice functional programming with run_fn_over_entire_tunnel(self, fn)
-        3. ensure pass by reference for this_ant in function doubleDamage_atPlace
-    """
+        3. Verify pass by reference for this_ant in function doubleDamage_atPlace """
     def check_ants_damage_levels(self):
-        print("\nThis is from self.doubled_ants list:")
-        print("\n".join(["%s: damage level=%d" %(ant.name, ant.damage) for ant in self.doubled_ants]))
-        print( "This is from a new sweep of all ants:")
-        self.run_fn_over_entire_tunnel(self.check_ant_damage)
+        print("\n\nCheck ants damage levels:")
+        self.run_fn_over_entire_tunnel(self.check_ant_damage_at_this_place)
 
-    def check_ant_damage(self, this_place):     
+    def check_ant_damage_at_this_place(self, this_place):     
         if this_place.ant is None or this_place.ant.name == "Queen": return
 
         if this_place.ant.container:
             if this_place.ant.ant is not None: # protected ant
-                print("%s: damage level=%d" %(this_place.ant.ant.name, this_place.ant.ant.damage))
+                print("%s: damage level = %d" %(this_place.ant.ant.name, this_place.ant.ant.damage))
         else:
-            print("%s: damage level=%d" %(this_place.ant.name, this_place.ant.damage))
+            print("%s: damage level = %d" %(this_place.ant.name, this_place.ant.damage))
 
 class AntRemover(Ant):
     """Allows the player to remove ants from the board in the GUI."""
