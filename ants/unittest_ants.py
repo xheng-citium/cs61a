@@ -289,6 +289,27 @@ class test_phase_4(unittest.TestCase):
         print_place = lambda p: print(p.name)
         queenant.run_fn_over_entire_tunnel(print_place) # Nothing to assert but to ensure the sequence is 3,4,5,6,7, Hive,3,2,1,0,AntQueen
 
+class test_extra_credit(unittest.TestCase):
+    def test_make_slow_make_stun(self):
+        slow = ants.SlowThrower()
+        bee = ants.Bee(armor=1)
+        colony = create_colony()
+        colony.places["tunnel_0_3"].add_insect(slow)
+        colony.places["tunnel_0_3"].add_insect(bee)
+        
+        colony.time = 3
+        self.assertEqual( ants.make_slow(bee.action)(colony), "make_slow: do nothing") # do nothing
+        
+        colony.time = 4
+        self.assertEqual( ants.make_slow(bee.action)(colony), None) # do bee.action(colony)
+        self.assertEqual( slow.armor, 0) # should subsequently kill the colocated SlowThrower
+        
+        self.assertEqual( ants.make_stun(bee.action)(colony), "make_stun: do nothing") 
+
+    def test_apply_effect(self):
+        pass
+        
+
 
 ##############################################################
 # Utilities and helpers

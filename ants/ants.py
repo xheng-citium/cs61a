@@ -6,13 +6,14 @@ from ucb import main, interact, trace
 from collections import OrderedDict
 import copy, pdb
 
+"""Xin note: 
+  Many cases of reaching inside a class, e.g. place.name is a direct call of member variable
 """
-Xin note:
-    Various locations reach in, e.g. place.name directly calls member variable
-"""
+
 ################
 # Core Classes #
 ################
+
 class Place:
     """A Place holds insects and has an exit to another Place."""
 
@@ -116,6 +117,13 @@ class Bee(Insect):
 
     name = 'Bee'
     watersafe = True
+    
+    # extra credit
+    affected = 0
+
+    def __init__(self, armor, place=None):
+        Insect.__init__(self, armor, place)
+        self.orig_action = self.action
 
     def sting(self, ant):
         """Attack an Ant, reducing the Ant's armor by 1."""
@@ -207,8 +215,7 @@ class ThrowerAnt(Ant):
 
     def throw_at(self, target):
         """Throw a leaf at the target Bee, reducing its armor."""
-        if target is not None:
-            target.reduce_armor(self.damage)
+        if target: target.reduce_armor(self.damage)
 
     def action(self, colony):
         """Throw a leaf at the nearest Bee in range."""
@@ -681,47 +688,66 @@ class AntRemover(Ant):
 # Status Effects #
 ##################
 
+def do_nothing(colony):
+    return "do nothing"
+
 def make_slow(action):
     """Return a new action method that calls action every other turn.
 
     action -- An action method of some Bee
     """
-    "*** YOUR CODE HERE ***"
+
+    def new_action(colony):
+        assert type(colony) == AntColony, "colony must be an AntColony object"
+        if colony.time % 2 == 0: 
+            return action(colony)
+        else: return "make_slow: do nothing" 
+    return new_action
 
 def make_stun(action):
     """Return a new action method that does nothing.
 
     action -- An action method of some Bee
     """
-    "*** YOUR CODE HERE ***"
+    def new_action(colony):
+        assert type(colony) == AntColony, "colony must be an AntColony object"
+        return "make_stun: do nothing"
+    return new_action
 
 def apply_effect(effect, bee, duration):
     """Apply a status effect to a Bee that lasts for duration turns."""
-    "*** YOUR CODE HERE ***"
+    assert effect in [make_slow, make_stun], "Invalid effect function"
 
+    if bee.affected < duration: # can only be affected for duration time
+        bee.action = effect(bee.action)
+        bee.affected += 1
+        print(bee_affected)
+    else:
+        # let the bee regain its original action
+        bee.action = bee.orig_action
 
 class SlowThrower(ThrowerAnt):
     """ThrowerAnt that causes Slow on Bees."""
 
     name = 'Slow'
-    "*** YOUR CODE HERE ***"
-    implemented = False
+    food_cost = 4
+    implemented = True
 
     def throw_at(self, target):
         if target:
             apply_effect(make_slow, target, 3)
 
-
 class StunThrower(ThrowerAnt):
     """ThrowerAnt that causes Stun on Bees."""
 
     name = 'Stun'
-    "*** YOUR CODE HERE ***"
-    implemented = False
+    food_cost = 6
+    implemented = True
 
     def throw_at(self, target):
         if target:
             apply_effect(make_stun, target, 1)
+
 
 @main
 def run(*args):
