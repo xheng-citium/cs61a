@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 
 """Visualizing Twitter Sentiment Across America"""
+from scipy.spatial import KDTree
+import numpy
 import pdb
 import re, os
 from collections import OrderedDict
@@ -128,7 +130,7 @@ def extract_words_with_emotion(text):
     for key in EMOTION_VALUES:
         emot = re.escape(key) # convert special metacharacter like ( and )
         words += re.findall( emot, text)
-    return  words 
+    return words 
 
 ####################################################################
 # sentiment pseudo class 
@@ -174,10 +176,8 @@ def get_word_sentiment(word):
     if word in EMOTION_VALUES:
         return make_sentiment(EMOTION_VALUES[word])
     else:
-        if RUN_SPELL_CORRECTOR: 
-            corrected = spell_corrector(word)
-        else: 
-            corrected = word
+        if RUN_SPELL_CORRECTOR: corrected = spell_corrector(word)
+        else: corrected = word
         return make_sentiment(word_sentiments.get(corrected))
 
 def analyze_tweet_sentiment(tweet):
@@ -336,16 +336,16 @@ def group_tweets_by_state(tweets):
     """
     if FIND_STATE == "by_statecenter":
         state_centers = {name: find_state_center(us_states[name]) for name in us_states }
-        pairs = [[ find_state_by_statecenter(tweet, state_centers), tweet] for tweet in tweets]
+        pairs = [[ find_state_by_center(tweet, state_centers), tweet] for tweet in tweets]
     elif FIND_STATE == "by_stateborders":
         pairs = []
         for tweet in tweets:
-           found_state = find_state_by_stateborders(tweet)
+           found_state = find_state_by_borders(tweet)
            if found_state is not None: 
                pairs.append([found_state, tweet])
-    return group_by_key(pairs)  
+    return group_by_key(pairs)
 
-def find_state_by_statecenter(tweet, state_centers):
+def find_state_by_center(tweet, state_centers):
     pos = tweet_location(tweet)
     min_distance, min_state = None, None # Track this tweet has min distance to which state center 
     for state_name in us_states:
@@ -355,7 +355,9 @@ def find_state_by_statecenter(tweet, state_centers):
             min_state = state_name
     return min_state
 
-def find_state_by_stateborders(tweet):    
+##########################################
+# Implement find_contain_state(), i.e. find_state_by_borders()
+def find_state_by_borders(tweet):    
     pos = tweet_location(tweet)
     for name in us_states:
         if any(is_inside_polygon(pos, polygon) for polygon in us_states[name]):
@@ -379,6 +381,41 @@ def is_inside_polygon(point, poly):
 
     return inside # inside = True if flipped by an odd number of times; othrewise False
 
+################################################
+# Implement quadtree
+def group_tweets_by_state_quadtree(tweets): 
+    """Make a KDTree out of state center coordinates 
+    Then query which state has smallest distance to the tweet that is from a list of tweets
+    Then form a pair of [state name, tweet]"""
+
+    assert FIND_STATE == "by_statecenter", "This fn only makes sense with by_statecenter option"
+    results = make_state_centers()
+    tree, state_centers = results["kdtree"], results["state_center_dict"]
+
+    pairs = []
+    for tweet in tweets:
+        pos = tweet_location(tweet)
+        _, idx = tree.query( [latitude(pos), longitude(pos)]) # Use KDTree to find smallest distance
+        state_name = state_centers[ tuple(tree.data[idx,:]) ]
+        pairs.append([state_name, tweet])
+    return group_by_key(pairs)
+
+def make_state_centers():
+    state_centers = {}
+    points = numpy.empty( (len(us_states), 2))
+    n = 0
+    for name in us_states:
+        center = find_state_center(us_states[name])
+        state_centers [ tuple(center) ] = name
+        points[n, :] = latitude(center), longitude(center)
+        n += 1
+    tree = KDTree(points)
+    
+    # kdtree: state centers formed into a kdtree
+    # state_centers: dict type, key is a tuple that represents state center, value is state name
+    return { "kdtree": tree, "state_center_dict": state_centers}
+
+##################################################
 def average_sentiments(tweets_by_state):
     """Calculate the average sentiment of the states by averaging over all
     the tweets from each state. Return the result as a dictionary from state
@@ -404,6 +441,7 @@ def average_sentiments(tweets_by_state):
         if counter > 0:
             sent_dict[state_name] = total_score / counter 
     return sent_dict
+
 
 ##############################
 # Implement spell corrector
@@ -501,7 +539,7 @@ def draw_state_sentiments(state_sentiments):
             draw_name(name, center)
 
 ##################################################################################
-"""Implement draw_map_for_query_by_hour() and keep original draw_map_for_query()"""
+# Implement draw_map_for_query_by_hour() and keep original draw_map_for_query()
 @uses_tkinter
 def draw_map_of_selected_tweets(tweets):
     tweets_by_state = group_tweets_by_state(tweets)
@@ -509,7 +547,7 @@ def draw_map_of_selected_tweets(tweets):
     draw_state_sentiments(state_sentiments)
     total = []
     for tweet in tweets:
-        if FIND_STATE=="by_stateborders" and find_state_by_stateborders(tweet) is None: # Not in US territory
+        if FIND_STATE=="by_stateborders" and find_state_by_borders(tweet) is None: # Not in US territory
             continue
         s = analyze_tweet_sentiment(tweet)
         if has_sentiment(s):

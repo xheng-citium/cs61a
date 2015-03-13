@@ -129,15 +129,15 @@ class test_extra(unittest.TestCase):
     def test_find_state_two_methods(self):
         state_centers = {name: trends.find_state_center(us_states[name]) for name in us_states }
         tweet = trends.make_tweet("austin tx", None, 30, -97)
-        self.assertEqual( trends.find_state_by_statecenter(tweet, state_centers), "TX")
-        self.assertEqual( trends.find_state_by_stateborders(tweet), "TX")
+        self.assertEqual( trends.find_state_by_center(tweet, state_centers), "TX")
+        self.assertEqual( trends.find_state_by_borders(tweet), "TX")
         tweet = trends.make_tweet("nyc", None, 40.7127, -74.0059)
-        self.assertEqual( trends.find_state_by_statecenter(tweet, state_centers), "NJ")
-        self.assertEqual( trends.find_state_by_stateborders(tweet), "NY")
+        self.assertEqual( trends.find_state_by_center(tweet, state_centers), "NJ")
+        self.assertEqual( trends.find_state_by_borders(tweet), "NY")
         
         tweet = trends.make_tweet("nanjing", None, 32.0, 118.8)
-        self.assertEqual(trends.find_state_by_statecenter(tweet, state_centers), "AK") # no mechanism to find this is not a US city
-        self.assertEqual( trends.find_state_by_stateborders(tweet), None)
+        self.assertEqual(trends.find_state_by_center(tweet, state_centers), "AK") # no mechanism to find this is not a US city
+        self.assertEqual( trends.find_state_by_borders(tweet), None)
 
     def test_is_inside_polygon(self):
         point = make_position(0.1, 0.5)
@@ -168,6 +168,26 @@ class test_extra(unittest.TestCase):
         self.assertEqual( trends.spell_corrector("austine"), "austin")
         self.assertNotEqual( trends.spell_corrector("heng"), "heng")
 
+    def test_group_by_state_quadtree(self):    
+        sf = [ trends.make_tweet("san francisco", None, 38, -122), trends.make_tweet("sfo", None, 37.5, -122)]
+        tweets_by_state = trends.group_tweets_by_state_quadtree(sf)
+        self.assertEqual( len(tweets_by_state["CA"]), 2)
+
+        ny = [trends.make_tweet("nyc", None, 40.7127, -74.0059)]
+        self.assertTrue("NJ" in trends.group_tweets_by_state_quadtree(ny).keys())
+        
+        tweets = trends.load_filter_tweets("good","tweets2014.txt", filter_fn=None)
+        
+        '''
+        # This is a speed test: quadtree is 15-20% faster on this data set
+        import time
+        start = time.time()
+        result_kdtree = trends.group_tweets_by_state_quadtree(tweets)
+        end = time.time()
+        print(end - start)
+        result        = trends.group_tweets_by_state(tweets)
+        print(time.time() - end)
+        '''
 
 if __name__ == "__main__":
     unittest.main()

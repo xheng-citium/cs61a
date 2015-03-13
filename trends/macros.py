@@ -2,9 +2,9 @@ from collections import OrderedDict
 import re, os
 from data import DATA_PATH
 
-CARE_EMOTION_SYMBOL = False # True or False
-RUN_SPELL_CORRECTOR = False # True or False
-FIND_STATE          = "by_statecenter" # "by_statecenter", "by_stateborders"
+CARE_EMOTION_SYMBOL = False # True or False (default)
+RUN_SPELL_CORRECTOR = False # True or False (default)
+FIND_STATE          = "by_statecenter" # "by_statecenter" (default), "by_stateborders"
 
 # a dictionary of emotion symbols and their values
 EMOTION_VALUES = OrderedDict()
@@ -13,7 +13,7 @@ EMOTION_VALUES[":-)"] =  0.7
 EMOTION_VALUES[":("]  = -0.5
 EMOTION_VALUES[":-("] = -0.6
 
-def count_all_words( dictionary_file=DATA_PATH+"big_dictionary.txt"):
+def count_all_words( dictionary_file = DATA_PATH + "big_dictionary.txt"):
     """Count all words in the dictionary file
     Returns a dict data:{ word: # of counts... } """
     assert os.path.isfile( dictionary_file), dictionary_file + " is not found"
