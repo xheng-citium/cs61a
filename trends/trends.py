@@ -1,10 +1,16 @@
 #!/usr/bin/python3
 
 """Visualizing Twitter Sentiment Across America"""
-
-from data import word_sentiments, load_tweets
+from scipy.spatial import KDTree
+import numpy
+import pdb
+import re, os
+from collections import OrderedDict
+from data import word_sentiments, load_tweets, DATA_PATH
 from datetime import datetime
 from geo import us_states, geo_distance, make_position, longitude, latitude
+from macros import FIND_STATE, CARE_EMOTION_SYMBOL, EMOTION_VALUES, RUN_SPELL_CORRECTOR, NWORDS
+
 try:
     import tkinter
     from maps import draw_state, draw_name, draw_dot, wait
@@ -43,6 +49,10 @@ def make_tweet(text, time, lat, lon):
     >>> tweet_string(t)
     '"just ate lunch" @ (122, 37)'
     """
+    assert type(text) == str, "text must be a string"
+    assert type(time) == datetime or time is None, "time must be either None or a datetime object"
+    assert type(lat) in [float, int] and type(lon) in [float, int], "lat and lon must be either intger or float"
+    assert not any(x.isupper() for x in text), "text cannot have upper case letters"
     return [text, time, lat, lon]
 
 def tweet_text(tweet):
@@ -73,13 +83,16 @@ def make_tweet_fn(text, time, lat, lon):
     122
     """
     # Please don't call make_tweet in your solution
+    assert type(text) == str, "text must be a string"
+    assert type(time) == datetime, "time must be a datetime object"
+    assert type(lat) in [float, int] and type(lon) in [float, int], "lat and lon must be either intger or float"
     def make(fld):
         if fld == "text": return text
         if fld == "time": return time
         if fld == "lat":  return lat
         if fld == "lon":  return lon
+        else: raise RuntimeError("Selected field is not valid")
     return make
-
 
 def tweet_text_fn(tweet):
     """Return a string, the words in the text of a functional tweet."""
@@ -103,32 +116,21 @@ def tweet_string(tweet):
 
 def tweet_words(tweet):
     """Return the words in a tweet."""
-    return extract_words(tweet_text(tweet))
+    if CARE_EMOTION_SYMBOL:
+        return extract_words_with_emotion( tweet_text(tweet))
+    else:
+        return extract_words(tweet_text(tweet))
 
 def extract_words(text):
-    """Return the words in a tweet, not including punctuation.
+    """Return the words in a tweet, not including punctuation """
+    return re.findall("[" + ascii_letters + "]+",text) 
 
-    >>> extract_words('anything else.....not my job')
-    ['anything', 'else', 'not', 'my', 'job']
-    >>> extract_words('i love my job. #winning')
-    ['i', 'love', 'my', 'job', 'winning']
-    >>> extract_words('make justin # 1 by tweeting #vma #justinbieber :)')
-    ['make', 'justin', 'by', 'tweeting', 'vma', 'justinbieber']
-    >>> extract_words("paperclips! they're so awesome, cool, & useful!")
-    ['paperclips', 'they', 're', 'so', 'awesome', 'cool', 'useful']
-    >>> extract_words('@(cat$.on^#$my&@keyboard***@#*')
-    ['cat', 'on', 'my', 'keyboard']
-    """
-    lst = []
-    currWd = ""
-    for s in text:
-        if s not in ascii_letters:
-            lst.append(currWd)
-            currWd = ""
-        else:
-            currWd += s
-    lst.append(currWd) # catch the last word
-    return [ s for s in lst if s != "" ] # lst has many "" elements
+def extract_words_with_emotion(text):   
+    words = re.findall("[" + ascii_letters + "]+",text) 
+    for key in EMOTION_VALUES:
+        emot = re.escape(key) # convert special metacharacter like ( and )
+        words += re.findall( emot, text)
+    return words 
 
 ####################################################################
 # sentiment pseudo class 
@@ -157,30 +159,26 @@ def make_sentiment(value):
 
 def has_sentiment(s):
     """Return whether sentiment s has a value."""
-    if s("value") is None: return False
-    else: return True
+    return s("value") is not None
 
 def sentiment_value(s):
     """Return the value of a sentiment s."""
     assert has_sentiment(s), 'No sentiment value'
     return s("value")
+
 ######################################################################
 
 def get_word_sentiment(word):
     """Return a sentiment representing the degree of positive or negative
     feeling in the given word.
-
-    >>> sentiment_value(get_word_sentiment('good'))
-    0.875
-    >>> sentiment_value(get_word_sentiment('bad'))
-    -0.625
-    >>> sentiment_value(get_word_sentiment('winning'))
-    0.5
-    >>> has_sentiment(get_word_sentiment('Berkeley'))
-    False
     """
     # Learn more: http://docs.python.org/3/library/stdtypes.html#dict.get
-    return make_sentiment(word_sentiments.get(word))
+    if word in EMOTION_VALUES:
+        return make_sentiment(EMOTION_VALUES[word])
+    else:
+        if RUN_SPELL_CORRECTOR: corrected = spell_corrector(word)
+        else: corrected = word
+        return make_sentiment(word_sentiments.get(corrected))
 
 def analyze_tweet_sentiment(tweet):
     """Return a sentiment representing the degree of positive or negative
@@ -200,20 +198,14 @@ def analyze_tweet_sentiment(tweet):
     >>> has_sentiment(analyze_tweet_sentiment(no_sentiment))
     False
     """
-    words = tweet_words(tweet)
-    sentList = [get_word_sentiment(w) for w in words ]
-    
+    sentList = [get_word_sentiment(w) for w in tweet_words(tweet) ] #sentiment list
     sent_ctr = 0 # sentimental word counter
     for s in sentList:
         if has_sentiment(s):
             sent_ctr += 1
-            if sent_ctr == 1:
-                sentiment_score = sentiment_value(s)
-            else:
-                sentiment_score += sentiment_value(s)
-    if sent_ctr > 0 :
-        return make_sentiment(sentiment_score / sent_ctr)
-    return make_sentiment(None)
+            if sent_ctr == 1: sentiment_score = sentiment_value(s)
+            else: sentiment_score += sentiment_value(s)
+    return make_sentiment(sentiment_score / sent_ctr) if sent_ctr > 0 else make_sentiment(None)
 
 #################################
 # Phase 2: The Geometry of Maps #
@@ -249,32 +241,22 @@ def find_centroid(polygon):
     [1.0, 2.0, 0.0]
     """
 
-    area = area_polygon(polygon)
-    if area == 0.0: 
-        return [latitude(polygon[0]), longitude(polygon[0]), 0.0] 
-
     nSides = len(polygon) - 1
-    Cx, Cy = 0, 0
+    A, Cx, Cy = 0, 0, 0
     for i in range(nSides):
         currPos, nextPos = polygon[i], polygon[i+1]
-        x, y           = latitude(currPos), longitude(currPos)
-        x_next, y_next = latitude(nextPos), longitude(nextPos)
+        x, y             = latitude(currPos), longitude(currPos)
+        x_next, y_next   = latitude(nextPos), longitude(nextPos)
         Cx += (x + x_next)*(x*y_next - x_next*y)
         Cy += (y + y_next)*(x*y_next - x_next*y)
-    Cx = 1.0/6/area*Cx
-    Cy = 1.0/6/area*Cy
-    return [Cx, Cy, abs(area)]
-
-def area_polygon(polygon):
-    # returned area can be negative
-    nSides = len(polygon) - 1
-    A = 0
-    for i in range(nSides):
-        currPos, nextPos = polygon[i], polygon[i+1]
-        x, y           = latitude(currPos), longitude(currPos)
-        x_next, y_next = latitude(nextPos), longitude(nextPos)
         A += x*y_next - x_next * y
-    return 0.5 * A 
+    
+    if A == 0.0: 
+        return [latitude(polygon[0]), longitude(polygon[0]), 0.0] 
+    A = A * 0.5
+    Cx = 1.0/6/A*Cx
+    Cy = 1.0/6/A*Cy
+    return [Cx, Cy, abs(A)]
 
 def find_state_center(polygons):
     """Compute the geographic center of a state, averaged over its polygons.
@@ -301,11 +283,10 @@ def find_state_center(polygons):
     total_Cx, total_Cy = 0, 0
     for poly in polygons:
         Cx, Cy, area = find_centroid(poly)
-        total_Cx += Cx * area
-        total_Cy += Cy * area
+        total_Cx   += Cx * area
+        total_Cy   += Cy * area
         total_area += area
-
-    return make_position( total_Cx/total_area, total_Cy/total_area)
+    return make_position( total_Cx/total_area, total_Cy/total_area) # weighted averages
 
 ###################################
 # Phase 3: The Mood of the Nation #
@@ -323,9 +304,15 @@ def group_by_key(pairs):
     {1: [2, 3, 2], 2: [4], 3: [2, 1]}
     """
     # Optional: This implementation is slow because it traverses the list of
-    #           pairs one time for each key. Can you improve it?
+    #           pairs one time for each key. Can you improve it? 
+    """
     keys = [key for key, _ in pairs]
-    return {key: [y for x, y in pairs if x == key] for key in keys}
+    return {key: [y for x, y in pairs if x == key] for key in keys}"""
+    result = {}
+    for k,v in pairs:
+        if k in result: result[ k ].append(v)
+        else: result[ k ] = [v]
+    return result
 
 def group_tweets_by_state(tweets):
     """Return a dictionary that groups tweets by their nearest state center.
@@ -347,23 +334,88 @@ def group_tweets_by_state(tweets):
     >>> tweet_string(california_tweets[0])
     '"welcome to san francisco" @ (38, -122)'
     """
-    state_centers = {name: find_state_center(us_states[name]) for name in us_states }
-    
-    group = []
+    if FIND_STATE == "by_statecenter":
+        state_centers = {name: find_state_center(us_states[name]) for name in us_states }
+        pairs = [[ find_state_by_center(tweet, state_centers), tweet] for tweet in tweets]
+    elif FIND_STATE == "by_stateborders":
+        pairs = []
+        for tweet in tweets:
+           found_state = find_state_by_borders(tweet)
+           if found_state is not None: 
+               pairs.append([found_state, tweet])
+    return group_by_key(pairs)
+
+def find_state_by_center(tweet, state_centers):
+    pos = tweet_location(tweet)
+    min_distance, min_state = None, None # Track this tweet has min distance to which state center 
+    for state_name in us_states:
+        thisDistance = geo_distance(pos, state_centers[state_name])
+        if min_distance is None or thisDistance < min_distance:
+            min_distance = thisDistance
+            min_state = state_name
+    return min_state
+
+##########################################
+# Implement find_contain_state(), i.e. find_state_by_borders()
+def find_state_by_borders(tweet):    
+    pos = tweet_location(tweet)
+    for name in us_states:
+        if any(is_inside_polygon(pos, polygon) for polygon in us_states[name]):
+            return name
+    return None
+
+def is_inside_polygon(point, poly):
+    """This is modified from http://www.ariel.com.au/a/python-point-int-poly.html
+    It implements the Ray casting algorithm: http://en.wikipedia.org/wiki/Point_in_polygon"""
+    x, y = latitude(point), longitude(point)
+    inside = False
+    p1x, p1y = latitude(poly[0]), longitude(poly[0])
+    for i in range(len(poly)):
+        p2x, p2y = latitude(poly[i]), longitude(poly[i])
+        if (min(p1y,p2y) < y <= max(p1y,p2y)) and x <= max(p1x, p2x):
+            if p1y != p2y:
+                xinters = (y-p1y)*(p2x-p1x)/(p2y-p1y)+p1x # x coordinate of the intersection btween the horizontal ray and line:p1-p2
+            if p1x == p2x or x <= xinters: # p1 == p2x would have caused xinters = inf
+                inside = not inside
+        p1x, p1y = p2x, p2y
+
+    return inside # inside = True if flipped by an odd number of times; othrewise False
+
+################################################
+# Implement quadtree
+def group_tweets_by_state_quadtree(tweets): 
+    """Make a KDTree out of state center coordinates 
+    Then query which state has smallest distance to the tweet that is from a list of tweets
+    Then form a pair of [state name, tweet]"""
+
+    assert FIND_STATE == "by_statecenter", "This fn only makes sense with by_statecenter option"
+    results = make_state_centers()
+    tree, state_centers = results["kdtree"], results["state_center_dict"]
+
+    pairs = []
     for tweet in tweets:
         pos = tweet_location(tweet)
-        min_distance, min_state = None, None
-        for state_name in us_states:
-            state_center = find_state_center( us_states[state_name])
-            thisDistance = geo_distance(pos, state_center)
-            if min_distance is None or thisDistance < min_distance:
-                min_distance = thisDistance
-                min_state = state_name
-        group.append([min_state, tweet])
+        _, idx = tree.query( [latitude(pos), longitude(pos)]) # Use KDTree to find smallest distance
+        state_name = state_centers[ tuple(tree.data[idx,:]) ]
+        pairs.append([state_name, tweet])
+    return group_by_key(pairs)
 
-    return group_by_key(group)
+def make_state_centers():
+    state_centers = {}
+    points = numpy.empty( (len(us_states), 2))
+    n = 0
+    for name in us_states:
+        center = find_state_center(us_states[name])
+        state_centers [ tuple(center) ] = name
+        points[n, :] = latitude(center), longitude(center)
+        n += 1
+    tree = KDTree(points)
+    
+    # kdtree: state centers formed into a kdtree
+    # state_centers: dict type, key is a tuple that represents state center, value is state name
+    return { "kdtree": tree, "state_center_dict": state_centers}
 
-
+##################################################
 def average_sentiments(tweets_by_state):
     """Calculate the average sentiment of the states by averaging over all
     the tweets from each state. Return the result as a dictionary from state
@@ -377,9 +429,8 @@ def average_sentiments(tweets_by_state):
     Arguments:
     tweets_by_state -- A dictionary from state names to lists of tweets
     """
-
-    sent_dict = {} # key is state name, value is avg tweet sentiment score
-    for state_name in tweets_by_state.keys():
+    sent_dict = {} # key: state name, value: avg tweet sentiment score
+    for state_name in tweets_by_state:
         total_score = 0
         counter = 0 # count how many tweets have a real sentiment score
         for tweet in tweets_by_state[state_name]:
@@ -390,6 +441,51 @@ def average_sentiments(tweets_by_state):
         if counter > 0:
             sent_dict[state_name] = total_score / counter 
     return sent_dict
+
+
+##############################
+# Implement spell corrector
+##############################
+def edits1(word):
+    """Main algorithm of the approach
+    returns possible corrections, which is made of 
+        delete a letter at possible locations
+        transpose adjacent letters
+        replace each letter by a letter from a-z
+        inserts a-z into all possible locations of the word"""
+    alphabet = 'abcdefghijklmnopqrstuvwxyz'
+    splits     = [(word[:i], word[i:]) for i in range(len(word) + 1)]
+    deletes    = [a + b[1:] for a, b in splits if b]
+    transposes = [a + b[1] + b[0] + b[2:] for a, b in splits if len(b)>1]
+    replaces   = [a + c + b[1:] for a, b in splits for c in alphabet if b]
+    inserts    = [a + c + b     for a, b in splits for c in alphabet]
+    return set(deletes + transposes + replaces + inserts)
+
+def known_edits2(word):
+    """ Based on edits1 algorithm, do it on the 2nd order level 
+    Returns all possible corrections
+    """
+    return set(e2 for e1 in edits1(word) for e2 in edits1(e1) if e2 in NWORDS)
+
+def known_edits3(word):
+    """ Based on edits1 algorithm, do it on the 3rd order level 
+    Returns all possible corrections
+    """
+    return set(e3 for e1 in edits1(word) for e2 in edits1(e1) for e3 in edits1(e2) if e3 in NWORDS)
+
+def known(words):
+    return set(w for w in words if w in NWORDS)
+
+def spell_corrector(word, order=1):
+    """"Modified from http://norvig.com/spell-correct.html """
+    # Return the first occurence that the set is not empty
+    if order == 3: # very slow on large set
+        candidates = known([word]) or known(edits1(word)) or known_edits2(word) or known_edits3(word) or [word]
+    elif order == 2:
+        candidates = known([word]) or known(edits1(word)) or known_edits2(word) or [word]
+    elif order == 1:
+        candidates = known([word]) or known(edits1(word)) or [word]
+    return max(candidates, key = NWORDS.get) # Find which word appears the most frequent
 
 ##########################
 # Command Line Interface #
@@ -442,22 +538,49 @@ def draw_state_sentiments(state_sentiments):
         if center is not None:
             draw_name(name, center)
 
+##################################################################################
+# Implement draw_map_for_query_by_hour() and keep original draw_map_for_query()
 @uses_tkinter
-def draw_map_for_query(term='my job', file_name='tweets2014.txt'):
-    """Draw the sentiment map corresponding to the tweets that contain term.
-
-    Some term suggestions:
-    New York, Texas, sandwich, my life, justinbieber
-    """
-    tweets = load_tweets(make_tweet, term, file_name)
+def draw_map_of_selected_tweets(tweets):
     tweets_by_state = group_tweets_by_state(tweets)
     state_sentiments = average_sentiments(tweets_by_state)
     draw_state_sentiments(state_sentiments)
+    total = []
     for tweet in tweets:
+        if FIND_STATE=="by_stateborders" and find_state_by_borders(tweet) is None: # Not in US territory
+            continue
         s = analyze_tweet_sentiment(tweet)
         if has_sentiment(s):
             draw_dot(tweet_location(tweet), sentiment_value(s))
+            total.append(sentiment_value(s))
+    if len(total) > 0:
+        print ("National average of all selected tweets: %.8f" %(sum(total)/len(total)) )
+    else:
+        print ("Selected tweets are not in US territory")
     wait()
+
+def load_filter_tweets(term, file_name, filter_fn, *args):
+    assert os.path.isfile(DATA_PATH + file_name), "Invalid file name"
+    tweets = load_tweets(make_tweet, term, file_name)
+    if filter_fn is None: 
+        return tweets
+    return filter_fn(tweets, *args)
+
+@uses_tkinter
+def draw_map_for_query(term='my job', file_name='tweets2014.txt'):
+    """Draw the sentiment map corresponding to the tweets that contain term.
+    Some term suggestions:
+    New York, Texas, sandwich, my life, justinbieber
+    """
+    tweets = load_filter_tweets( term, file_name, filter_fn=None)
+    draw_map_of_selected_tweets(tweets)
+
+def draw_map_for_query_by_hour(hour,term, file_name="tweets2014.txt"):
+    """Draw the sentiment map corresponding to term and hour"""
+    assert 0<= hour <=23, "Invalid hour"
+    filter_by_hour = lambda Y, hr: [t for t in Y if hr == tweet_time(t).hour]
+    tweets = load_filter_tweets( term, file_name, filter_by_hour, hour)
+    draw_map_of_selected_tweets(tweets)
 
 def swap_tweet_representation(other=[make_tweet_fn, tweet_text_fn,
                                      tweet_time_fn, tweet_location_fn]):
@@ -468,29 +591,42 @@ def swap_tweet_representation(other=[make_tweet_fn, tweet_text_fn,
     make_tweet, tweet_text, tweet_time, tweet_location = swap_to
 
 
-
-
 @main
 def run(*args):
     """Read command-line arguments and calls corresponding functions."""
     import argparse
     parser = argparse.ArgumentParser(description="Run Trends")
-    parser.add_argument('--print_sentiment', '-p', action='store_true')
-    parser.add_argument('--draw_centered_map', '-d', action='store_true')
+    parser.add_argument('--print_sentiment',    '-p', action='store_true')
+    parser.add_argument('--draw_centered_map',  '-d', action='store_true')
     parser.add_argument('--draw_map_for_query', '-m', type=str)
-    parser.add_argument('--tweets_file', '-t', type=str, default='tweets2014.txt')
-    parser.add_argument('--use_functional_tweets', '-f', action='store_true')
+    parser.add_argument('--draw_by_hour',       '-hr',type=int)
+    parser.add_argument('--tweets_file',        '-t', type=str, default='tweets2014.txt')
+    parser.add_argument('--use_functional_tweets','-f', action='store_true')
     parser.add_argument('text', metavar='T', type=str, nargs='*',
                         help='Text to process')
     args = parser.parse_args()
+    
+    print("\nMacro variable choices:") 
+    for s in ["FIND_STATE", "CARE_EMOTION_SYMBOL", "RUN_SPELL_CORRECTOR"]:
+        print(s," = ", eval(s))
+
     if args.use_functional_tweets:
         swap_tweet_representation()
         print("Now using a functional representation of tweets!")
         args.use_functional_tweets = False
     if args.draw_map_for_query:
+        term = args.draw_map_for_query
         print("Using", args.tweets_file)
-        draw_map_for_query(args.draw_map_for_query, args.tweets_file)
+        if args.draw_by_hour:
+            hour = args.draw_by_hour
+            print("Draw map by term: %s and by hour: %d" %( term,  hour) )
+            draw_map_for_query_by_hour(hour, term, args.tweets_file)
+        else:
+            print("Draw map by term:", term)
+            draw_map_for_query(term, args.tweets_file)
         return
     for name, execute in args.__dict__.items():
         if name != 'text' and name != 'tweets_file' and execute:
             globals()[name](' '.join(args.text))
+
+
