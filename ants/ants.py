@@ -159,7 +159,7 @@ class Ant(Insect):
     is_ant = True
     damage = 0
     food_cost = 0
-    blocks_path = True
+    blocks_path = True # True except for Ninja
     container   = False # Can contain other ants or not
     implemented = False  # Only implemented Ant classes should be instantiated
 
@@ -496,7 +496,7 @@ class ShortThrower(ThrowerAnt):
     """A ThrowerAnt that only throws leaves at Bees less than 3 places away."""
     name = 'Short'
     food_cost = 3
-    max_range = 2
+    max_range = 3
     implemented = True
 
 # The WallAnt class
@@ -524,7 +524,6 @@ class NinjaAnt(Ant):
 
 # The ScubaThrower class
 class ScubaThrower(ThrowerAnt):
-    
     name = 'Scuba'
     food_cost = 5
     watersafe = True
@@ -550,13 +549,10 @@ class HungryAnt(Ant):
     def action(self, colony):
         if self.digesting > 0:
             self.digesting -= 1
-            if debug: 
-                print("Hungry\'s time to wait:", self.digesting)
             return
         if self.place.bees:
             bee = random_or_none(self.place.bees)
             self.eat_bee(bee)
-            if debug: print("Hungry just ate a bee")
             self.digesting = self.time_to_digest
 
 class BodyguardAnt(Ant):
@@ -644,13 +640,11 @@ class QueenAnt(ScubaThrower):
         """
         this_place = self.place
         while this_place is not None:
-            if debug: print(fn.__name__)
             fn(this_place)
             this_place = this_place.entrance
 
         this_place = self.place
         while this_place is not None:
-            if debug: print(fn.__name__)
             fn(this_place)
             this_place = this_place.exit
         return
