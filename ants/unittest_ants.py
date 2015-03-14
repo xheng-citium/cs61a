@@ -8,16 +8,16 @@ import ants
 class test_phase_1(unittest.TestCase):
     def test_Harvester_and_Thrower(self):
         harv = ants.HarvesterAnt()
-        self.assertEqual(harv.food_cost, 2)
-        self.assertEqual(harv.armor, 1)
+        self.assertEqual(harv.get_food_cost(), 2)
+        self.assertEqual(harv.get_armor(), 1)
        
         colony = create_colony()
-        orig_food = colony.food
+        orig_food = colony.colony_food
         harv.action(colony)
-        self.assertEqual(colony.food, orig_food + 1 ) # Harvester add colony food by 1
+        self.assertEqual(colony.colony_food, orig_food + 1 ) # Harvester add colony food by 1
 
         thrower = ants.ThrowerAnt()
-        self.assertEqual(thrower.food_cost, 4) # testing action() is more meaningful later with LongThrower and ShortThrower
+        self.assertEqual(thrower.get_food_cost(), 4) # testing action() is more meaningful later with LongThrower and ShortThrower
         # nearest_bee() is tested in phase 2
 
     def test_Place(self):
@@ -34,31 +34,31 @@ class test_phase_1(unittest.TestCase):
 class test_phase_2(unittest.TestCase):
     def test_Water(self):
         bee = ants.Bee(armor = 1)
-        self.assertTrue(bee.watersafe)
+        self.assertTrue(bee.is_watersafe())
         waterplace = ants.Water("A")
         waterplace.add_insect(bee)
-        self.assertTrue(bee.armor == 1)
+        self.assertTrue(bee.get_armor() == 1)
 
         harv = ants.HarvesterAnt()
         waterplace = ants.Water("A")
         waterplace.add_insect(harv)
-        self.assertTrue(harv.armor == 0)
+        self.assertTrue(harv.get_armor() == 0)
 
     def test_FireAnt(self):
         """Procedure: Create a Place, and put a FireAnt and a Bee inside. When FireAnt is dead, Bee armor is reduced by a certain damage level"""
         place = ants.Place(name = "A")
-        fire = ants.FireAnt(armor=2)
+        fire  = ants.FireAnt(armor=2)
         bee_1 = ants.Bee(armor = 3, place=place)
         
         place.add_insect(fire)
         place.add_insect(bee_1)
-        orig_armor_1 = bee_1.armor
+        orig_armor_1 = bee_1.get_armor()
         
         fire.reduce_armor(1)
-        self.assertEqual(bee_1.armor, orig_armor_1)
+        self.assertEqual(bee_1.get_armor(), orig_armor_1)
                 
         fire.reduce_armor(1) # FireAnt is dead
-        self.assertEqual(bee_1.armor, orig_armor_1 - fire.damage)
+        self.assertEqual(bee_1.get_armor(), orig_armor_1 - fire.damage_level)
     
     def test_nearest_bee(self):
         """Create a colony and put a ThrowerAnt and several bees in tunnel cells
@@ -105,8 +105,8 @@ class test_phase_2(unittest.TestCase):
 class test_phase_3(unittest.TestCase):
     def test_WallAnt(self):
         wall = ants.WallAnt()
-        self.assertEqual(wall.armor, 4)
-        self.assertEqual(wall.food_cost, 4)
+        self.assertEqual(wall.get_armor(), 4)
+        self.assertEqual(wall.get_food_cost(), 4)
 
         colony = create_colony()
         bee = ants.Bee(armor=1)
@@ -116,12 +116,12 @@ class test_phase_3(unittest.TestCase):
         while ctr < 4+1: # 4+1 b/c it takes 4 stings to kill WallAnt amd 1 action to move bee to next place
             bee.action(colony)
             ctr += 1
-        self.assertEqual(wall.armor, 0)
-        self.assertEqual(bee.place.name, "tunnel_0_2")
+        self.assertEqual(wall.get_armor(), 0)
+        self.assertEqual(bee.place.get_name(), "tunnel_0_2")
 
     def test_NinjaAnt(self):
         ninja = ants.NinjaAnt()
-        self.assertEqual(ninja.food_cost, 6)        
+        self.assertEqual(ninja.get_food_cost(), 6)        
         
         colony = create_colony()
         bee_0 = ants.Bee(armor=1)
@@ -135,18 +135,18 @@ class test_phase_3(unittest.TestCase):
         colony.places["tunnel_0_2"].add_insect(bee_1)
         self.assertFalse(bee_1.blocked())
 
-        orig_armor_0, orig_armor_1 = bee_0.armor, bee_1.armor
+        orig_armor_0, orig_armor_1 = bee_0.get_armor(), bee_1.get_armor()
         ninja.action(colony)
-        self.assertEqual(bee_0.armor, orig_armor_0)
-        self.assertEqual(bee_1.armor, orig_armor_1 - ninja.damage) # Colocated bee is damaged
+        self.assertEqual(bee_0.get_armor(), orig_armor_0)
+        self.assertEqual(bee_1.get_armor(), orig_armor_1 - ninja.damage_level) # Colocated bee is damaged
    
     def test_Scuba(self):
         scuba = ants.ScubaThrower()
-        self.assertTrue(scuba.watersafe)
+        self.assertTrue(scuba.is_watersafe())
         waterplace = ants.Water("A")
-        orig_armor = scuba.armor
+        orig_armor = scuba.get_armor()
         waterplace.add_insect(scuba)
-        self.assertTrue(scuba.armor == orig_armor)
+        self.assertTrue(scuba.get_armor() == orig_armor)
 
     def test_Hungry(self):
         hungry = ants.HungryAnt()
@@ -155,26 +155,26 @@ class test_phase_3(unittest.TestCase):
         colony.places["tunnel_0_1"].add_insect(hungry)
         colony.places["tunnel_0_1"].add_insect(bee_0)
         hungry.action(colony)
-        self.assertTrue(bee_0.armor <= 0)
+        self.assertTrue(bee_0.get_armor() <= 0)
         self.assertEqual(hungry.digesting, ants.HungryAnt.time_to_digest)
         
         orig_digesting = hungry.digesting
         colony.places["tunnel_0_1"].add_insect(bee_1) # Add another bee
-        orig_armor_1 = bee_1.armor
+        orig_armor_1 = bee_1.get_armor()
         counter = 0
         while counter <= orig_digesting:
             hungry.action(colony)
             if counter < orig_digesting:
-                self.assertEqual(bee_1.armor, orig_armor_1) # bee_1 armor should not reduce
+                self.assertEqual(bee_1.get_armor(), orig_armor_1) # bee_1 armor should not reduce
             if counter == orig_digesting:
-                self.assertEqual(bee_1.armor, 0) 
+                self.assertEqual(bee_1.get_armor(), 0) 
             counter += 1
         
 class test_phase_4(unittest.TestCase):
     def test_Bodyguard(self):
         body = ants.BodyguardAnt()
         thrower, thrower_1 = ants.ThrowerAnt(), ants.ThrowerAnt()
-        self.assertEqual(body.armor, 2)
+        self.assertEqual(body.get_armor(), 2)
         self.assertTrue(body.container)
         self.assertTrue(body.can_contain(thrower))
         self.assertFalse(body.can_contain(ants.BodyguardAnt())) # cannot contain another BodyguardAnt
@@ -203,17 +203,17 @@ class test_phase_4(unittest.TestCase):
         colony.places["tunnel_0_5"].add_insect(bee)
         colony.places["tunnel_0_5"].add_insect(harv)
         colony.places["tunnel_0_5"].add_insect(body)
-        orig_armor_body, orig_armor_harv = body.armor, harv.armor
+        orig_armor_body, orig_armor_harv = body.get_armor(), harv.get_armor()
         counter = 0 
-        while body.armor > 0:
+        while body.get_armor() > 0:
             bee.action(colony)
             counter += 1
         self.assertEqual(counter, orig_armor_body)
-        self.assertEqual(body.armor, 0)
+        self.assertEqual(body.get_armor(), 0)
         self.assertTrue(colony.places["tunnel_0_5"].ant == harv) # Now body is dead, harv takes its place
-        self.assertEqual(harv.armor, orig_armor_harv)
+        self.assertEqual(harv.get_armor(), orig_armor_harv)
         bee.action(colony)
-        self.assertEqual(harv.armor, 0)
+        self.assertEqual(harv.get_armor(), 0)
     
     def test_imposter_and_unmovable_first_queen(self): 
         ants.QueenAnt.ctr_QueenAnt = 0 # ensure queenant is first queen
@@ -225,9 +225,9 @@ class test_phase_4(unittest.TestCase):
         imposter = ants.QueenAnt()
         self.assertFalse(imposter.firstQueenAnt)
         colony.places["tunnel_0_5"].add_insect(imposter)
-        self.assertEqual(imposter.armor, 1)
+        self.assertEqual(imposter.get_armor(), 1)
         imposter.action(colony)
-        self.assertEqual(imposter.armor, 0) # die upon taking the first action()
+        self.assertEqual(imposter.get_armor(), 0) # die upon taking the first action()
 
         colony.places["tunnel_0_4"].remove_insect(queenant) # Unmovable first queen
         self.assertEqual(colony.places["tunnel_0_4"].ant, queenant)
@@ -252,7 +252,7 @@ class test_phase_4(unittest.TestCase):
         queenant = ants.QueenAnt()
         self.assertTrue(queenant.firstQueenAnt)
         thrower, ninja, body = ants.ThrowerAnt(), ants.NinjaAnt(), ants.BodyguardAnt()
-        orig_damages = [queenant.damage, thrower.damage, ninja.damage, body.damage]
+        orig_damages = [queenant.damage_level, thrower.damage_level, ninja.damage_level, body.damage_level]
         
         colony = create_colony()
         colony.places["tunnel_0_5"].add_insect(thrower)
@@ -261,20 +261,20 @@ class test_phase_4(unittest.TestCase):
         colony.places["tunnel_0_3"].add_insect(queenant)
         
         queenant.action(colony)
-        self.assertEqual(queenant.damage, orig_damages[0]) # QueenAnt should not double herself
-        self.assertEqual(thrower.damage,2*orig_damages[1])
-        self.assertEqual(ninja.damage,  2*orig_damages[2])
+        self.assertEqual(queenant.damage_level, orig_damages[0]) # QueenAnt should not double herself
+        self.assertEqual(thrower.damage_level,2*orig_damages[1])
+        self.assertEqual(ninja.damage_level,  2*orig_damages[2])
         
         for ant in queenant.doubled_ants: # Ensure doubled_ants list is correct
-            self.assertTrue(ant.name in ["Thrower", "Ninja"])
-            self.assertFalse(ant.name=="Bodyguard") # Bodyguard should not be in, b/s it protects ThrowerAnt
-            self.assertFalse(ant.name=="Queen")
+            self.assertTrue(ant.get_name() in ["Thrower", "Ninja"])
+            self.assertFalse(ant.get_name()=="Bodyguard") # Bodyguard should not be in, b/s it protects ThrowerAnt
+            self.assertFalse(ant.get_name()=="Queen")
         
         # Damage levels should not double again in the 2nd action()
         queenant.action(colony)
-        self.assertEqual(queenant.damage, orig_damages[0]) 
-        self.assertEqual(thrower.damage,2*orig_damages[1])
-        self.assertEqual(ninja.damage,  2*orig_damages[2])
+        self.assertEqual(queenant.damage_level, orig_damages[0]) 
+        self.assertEqual(thrower.damage_level,2*orig_damages[1])
+        self.assertEqual(ninja.damage_level,  2*orig_damages[2])
 
         queenant.check_ants_damage_levels() # Nothing to assert but to verify Thrower and Ninja damage doubled to 2
 
@@ -286,7 +286,7 @@ class test_phase_4(unittest.TestCase):
         colony.places["tunnel_0_3"].add_insect(queenant)
         
         print("\nVerify the run_fn_over_entire_tunnel() follows the right sequence")
-        print_place = lambda p: print(p.name)
+        print_place = lambda p: print(p.get_name())
         queenant.run_fn_over_entire_tunnel(print_place) # Nothing to assert but to ensure the sequence is 3,4,5,6,7, Hive,3,2,1,0,AntQueen
 
 class test_extra_credit(unittest.TestCase):
@@ -299,14 +299,36 @@ class test_extra_credit(unittest.TestCase):
         
         colony.time = 3
         self.assertEqual( ants.make_slow(bee.action)(colony), "make_slow: do nothing") # do nothing
+        self.assertEqual( slow.get_armor(), 1) # colocated SlowThrower armor should not change
         
         colony.time = 4
         self.assertEqual( ants.make_slow(bee.action)(colony), None) # do bee.action(colony)
-        self.assertEqual( slow.armor, 0) # should subsequently kill the colocated SlowThrower
+        self.assertEqual( slow.get_armor(), 0) # should subsequently kill the colocated SlowThrower
         
         self.assertEqual( ants.make_stun(bee.action)(colony), "make_stun: do nothing") 
 
     def test_apply_effect(self):
+        slow = ants.SlowThrower()
+        bee = ants.Bee(armor=1)
+        colony = create_colony()
+        colony.places["tunnel_0_0"].add_insect(slow)
+        colony.places["tunnel_0_7"].add_insect(bee)
+
+        for time in range( 8):
+            colony.time = time
+            slow.action(colony)
+
+            if colony.time > 3: # duration time
+                pdb.set_trace()
+                bee.action
+            else: 
+                if colony.time % 2 == 1:
+                    self.assertTrue(bee.action(colony) == "make_slow: do nothing")
+                else: 
+                    pdb.set_trace()
+                    bee.action(colony)
+
+
         pass
         
 
