@@ -9,7 +9,7 @@ from collections import OrderedDict
 from data import word_sentiments, load_tweets, DATA_PATH
 from datetime import datetime
 from geo import us_states, geo_distance, make_position, longitude, latitude
-from macros import FIND_STATE, CARE_EMOTION_SYMBOL, EMOTION_VALUES, RUN_SPELL_CORRECTOR, NWORDS
+from macros import constants, emotion_values, NWORDS
 
 try:
     import tkinter
@@ -116,7 +116,7 @@ def tweet_string(tweet):
 
 def tweet_words(tweet):
     """Return the words in a tweet."""
-    if CARE_EMOTION_SYMBOL:
+    if constants.care_emotion_symbol:
         return extract_words_with_emotion( tweet_text(tweet))
     else:
         return extract_words(tweet_text(tweet))
@@ -125,9 +125,9 @@ def extract_words(text):
     """Return the words in a tweet, not including punctuation """
     return re.findall("[" + ascii_letters + "]+",text) 
 
-def extract_words_with_emotion(text):   
-    words = re.findall("[" + ascii_letters + "]+",text) 
-    for key in EMOTION_VALUES:
+def extract_words_with_emotion(text):
+    words = extract_words(text)
+    for key in emotion_values:
         emot = re.escape(key) # convert special metacharacter like ( and )
         words += re.findall( emot, text)
     return words 
@@ -173,12 +173,13 @@ def get_word_sentiment(word):
     feeling in the given word.
     """
     # Learn more: http://docs.python.org/3/library/stdtypes.html#dict.get
-    if word in EMOTION_VALUES:
-        return make_sentiment(EMOTION_VALUES[word])
-    else:
-        if RUN_SPELL_CORRECTOR: corrected = spell_corrector(word)
-        else: corrected = word
-        return make_sentiment(word_sentiments.get(corrected))
+    if word in emotion_values:
+        return make_sentiment(emotion_values[word])
+
+    if constants.run_spell_corrector: 
+        corrected = spell_corrector(word)
+    else: corrected = word
+    return make_sentiment(word_sentiments.get(corrected))
 
 def analyze_tweet_sentiment(tweet):
     """Return a sentiment representing the degree of positive or negative
@@ -334,16 +335,18 @@ def group_tweets_by_state(tweets):
     >>> tweet_string(california_tweets[0])
     '"welcome to san francisco" @ (38, -122)'
     """
-    if FIND_STATE == "by_statecenter":
+    if constants.find_state_by == "by_statecenter":
         state_centers = {name: find_state_center(us_states[name]) for name in us_states }
         pairs = [[ find_state_by_center(tweet, state_centers), tweet] for tweet in tweets]
-    elif FIND_STATE == "by_stateborders":
+    elif constants.find_state_by == "by_stateborders":
         pairs = []
         for tweet in tweets:
            found_state = find_state_by_borders(tweet)
            if found_state is not None: 
                pairs.append([found_state, tweet])
+    else: raise RuntimeError("Invalid choice of find_state_by")
     return group_by_key(pairs)
+
 
 def find_state_by_center(tweet, state_centers):
     pos = tweet_location(tweet)
@@ -385,10 +388,10 @@ def is_inside_polygon(point, poly):
 # Implement quadtree
 def group_tweets_by_state_quadtree(tweets): 
     """Make a KDTree out of state center coordinates 
-    Then query which state has smallest distance to the tweet that is from a list of tweets
-    Then form a pair of [state name, tweet]"""
+    Then query which state has smallest distance to the tweet. There is a list of tweets
+    Thirs, form a pair of [state name, tweet] """
 
-    assert FIND_STATE == "by_statecenter", "This fn only makes sense with by_statecenter option"
+    assert constants.find_state_by == "by_statecenter", "This fn only makes sense with by_statecenter option"
     results = make_state_centers()
     tree, state_centers = results["kdtree"], results["state_center_dict"]
 
@@ -412,7 +415,7 @@ def make_state_centers():
     tree = KDTree(points)
     
     # kdtree: state centers formed into a kdtree
-    # state_centers: dict type, key is a tuple that represents state center, value is state name
+    # state_center_dict: key is a tuple that represents state center, value is state name
     return { "kdtree": tree, "state_center_dict": state_centers}
 
 ##################################################
@@ -446,6 +449,7 @@ def average_sentiments(tweets_by_state):
 ##############################
 # Implement spell corrector
 ##############################
+"""" Modified/Updated from http://norvig.com/spell-correct.html """
 def edits1(word):
     """Main algorithm of the approach
     returns possible corrections, which is made of 
@@ -503,7 +507,7 @@ def uses_tkinter(func):
 
 def print_sentiment(text='Are you virtuous or verminous?'):
     """Print the words in text, annotated by their sentiment scores."""
-    words = extract_words(text.lower())
+    words = extract_words(text.lower()) # NB: punctuations like :) is ignored
     layout = '{0:>' + str(len(max(words, key=len))) + '}: {1:+}'
     for word in words:
         s = get_word_sentiment(word)
@@ -547,8 +551,9 @@ def draw_map_of_selected_tweets(tweets):
     draw_state_sentiments(state_sentiments)
     total = []
     for tweet in tweets:
-        if FIND_STATE=="by_stateborders" and find_state_by_borders(tweet) is None: # Not in US territory
+        if constants.find_state_by == "by_stateborders" and find_state_by_borders(tweet) is None: # if Not in US territory
             continue
+
         s = analyze_tweet_sentiment(tweet)
         if has_sentiment(s):
             draw_dot(tweet_location(tweet), sentiment_value(s))
@@ -562,9 +567,7 @@ def draw_map_of_selected_tweets(tweets):
 def load_filter_tweets(term, file_name, filter_fn, *args):
     assert os.path.isfile(DATA_PATH + file_name), "Invalid file name"
     tweets = load_tweets(make_tweet, term, file_name)
-    if filter_fn is None: 
-        return tweets
-    return filter_fn(tweets, *args)
+    return tweets if filter_fn is None else filter_fn(tweets, *args)
 
 @uses_tkinter
 def draw_map_for_query(term='my job', file_name='tweets2014.txt'):
@@ -590,7 +593,6 @@ def swap_tweet_representation(other=[make_tweet_fn, tweet_text_fn,
     other[:] = [make_tweet, tweet_text, tweet_time, tweet_location]
     make_tweet, tweet_text, tweet_time, tweet_location = swap_to
 
-
 @main
 def run(*args):
     """Read command-line arguments and calls corresponding functions."""
@@ -605,10 +607,7 @@ def run(*args):
     parser.add_argument('text', metavar='T', type=str, nargs='*',
                         help='Text to process')
     args = parser.parse_args()
-    
-    print("\nMacro variable choices:") 
-    for s in ["FIND_STATE", "CARE_EMOTION_SYMBOL", "RUN_SPELL_CORRECTOR"]:
-        print(s," = ", eval(s))
+    constants.print_all()
 
     if args.use_functional_tweets:
         swap_tweet_representation()
@@ -617,6 +616,7 @@ def run(*args):
     if args.draw_map_for_query:
         term = args.draw_map_for_query
         print("Using", args.tweets_file)
+        
         if args.draw_by_hour:
             hour = args.draw_by_hour
             print("Draw map by term: %s and by hour: %d" %( term,  hour) )
@@ -625,6 +625,7 @@ def run(*args):
             print("Draw map by term:", term)
             draw_map_for_query(term, args.tweets_file)
         return
+    
     for name, execute in args.__dict__.items():
         if name != 'text' and name != 'tweets_file' and execute:
             globals()[name](' '.join(args.text))

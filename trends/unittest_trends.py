@@ -1,9 +1,9 @@
 #!/usr/bin/python3
 
 import unittest
+from datetime import datetime
 import pdb
 import trends 
-from datetime import datetime
 from geo import us_states, geo_distance, make_position, longitude, latitude
 
 class test_phase_1(unittest.TestCase):
@@ -176,10 +176,10 @@ class test_extra(unittest.TestCase):
         ny = [trends.make_tweet("nyc", None, 40.7127, -74.0059)]
         self.assertTrue("NJ" in trends.group_tweets_by_state_quadtree(ny).keys())
         
-        tweets = trends.load_filter_tweets("good","tweets2014.txt", filter_fn=None)
-        
         '''
         # This is a speed test: quadtree is 15-20% faster on this data set
+        tweets = trends.load_filter_tweets("good","tweets2014.txt", filter_fn=None)
+        
         import time
         start = time.time()
         result_kdtree = trends.group_tweets_by_state_quadtree(tweets)
