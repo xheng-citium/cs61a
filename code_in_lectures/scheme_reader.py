@@ -1,27 +1,10 @@
-"""This module implements the built-in data types of the Scheme language, along
-with a parser for Scheme expressions.
-
-In addition to the types defined in this file, some data types in Scheme are
-represented by their corresponding type in Python:
-    number:       int or float
-    symbol:       string
-    boolean:      bool
-    unspecified:  None
-
-The __repr__ method of a Scheme value will return a Python expression that
-would be evaluated to the value, where possible.
-
-The __str__ method of a Scheme value will return a Scheme expression that
-would be read to the value, where possible.
-"""
-
 from ucb import main, trace, interact
 from scheme_tokens import tokenize_lines, DELIMITERS
-from buffer import Buffer, InputReader, LineReader
+from buffer import Buffer, InputReader
 
 # Pairs and Scheme lists
 
-class Pair:
+class Pair(object):
     """A pair has two instance attributes: first and second.  For a Pair to be
     a well-formed list, second is either a well-formed list or nil.  Some
     methods only apply to well-formed lists.
@@ -76,11 +59,6 @@ class Pair:
             y = y.second
         return y.first
 
-    def __eq__(self, p):
-        if not isinstance(p, Pair):
-            return False
-        return self.first == p.first and self.second == p.second
-
     def map(self, fn):
         """Return a Scheme list after mapping Python function FN to SELF."""
         mapped = fn(self.first)
@@ -89,7 +67,7 @@ class Pair:
         else:
             raise TypeError("ill-formed list")
 
-class nil:
+class nil(object):
     """The empty list"""
 
     def __repr__(self):
@@ -111,101 +89,64 @@ class nil:
 
 nil = nil() # Assignment hides the nil class; there is only one instance
 
-# Scheme list parser
 
+# Scheme list parser, without quotation or dotted lists.
 
 def scheme_read(src):
-    """Read the next expression from SRC, a Buffer of tokens.
+    """Read the next expression from src, a Buffer of tokens.
 
-    >>> lines = ["(+ 1 ", "(+ 23 4)) ("]
+    >>> lines = ['(+ 1 ', '(+ 23 4)) (']
     >>> src = Buffer(tokenize_lines(lines))
     >>> print(scheme_read(src))
     (+ 1 (+ 23 4))
-    >>> read_line("'hello")
-    Pair('quote', Pair('hello', nil))
-    >>> print(read_line("(car '(1 2))"))
-    (car (quote (1 2)))
     """
     if src.current() is None:
         raise EOFError
     val = src.pop()
-    if val == "nil":
+    if val == 'nil':
         return nil
-    elif val not in DELIMITERS:
+    elif val not in DELIMITERS:  # ( ) ' .
         return val
-    elif val == "'":
-        return "quote"
     elif val == "(":
         return read_tail(src)
     else:
         raise SyntaxError("unexpected token: {0}".format(val))
 
 def read_tail(src):
-    """Return the remainder of a list in SRC, starting before an element or ).
+    """Return the remainder of a list in src, starting before an element or ).
 
-    >>> read_tail(Buffer(tokenize_lines([")"])))
+    >>> read_tail(Buffer(tokenize_lines([')'])))
     nil
-    >>> read_tail(Buffer(tokenize_lines(["2 3)"])))
+    >>> read_tail(Buffer(tokenize_lines(['2 3)'])))
     Pair(2, Pair(3, nil))
-    >>> read_tail(Buffer(tokenize_lines(["2 (3 4))"])))
+    >>> read_tail(Buffer(tokenize_lines(['2 (3 4))'])))
     Pair(2, Pair(Pair(3, Pair(4, nil)), nil))
-    >>> read_line("(1 . 2)")
-    Pair(1, 2)
-    >>> read_line("(1 2 . 3)")
-    Pair(1, Pair(2, 3))
-    >>> read_line("(1 . 2 3)")
-    Traceback (most recent call last):
-        ...
-    SyntaxError: Expected one element after .
-    >>> scheme_read(Buffer(tokenize_lines(["(1", "2 .", "'(3 4))", "4"])))
-    Pair(1, Pair(2, Pair('quote', Pair(Pair(3, Pair(4, nil)), nil))))
     """
-    try:
-        if src.current() is None:
-            raise SyntaxError("unexpected end of file")
-        elif src.current() == ")":
-            src.pop()
-            return nil
-        elif src.current() == ".":
-            "*** YOUR CODE HERE ***"
-        else:
-            first = scheme_read(src)
-            rest = read_tail(src)
-            return Pair(first, rest)
-    except EOFError:
+    if src.current() is None:
         raise SyntaxError("unexpected end of file")
+    if src.current() == ")":
+        src.pop()
+        return nil
+    first = scheme_read(src)
+    rest = read_tail(src)
+    return Pair(first, rest)
 
-# Convenience methods
-
-def buffer_input(prompt="scm> "):
-    """Return a Buffer instance containing interactive input."""
-    return Buffer(tokenize_lines(InputReader(prompt)))
-
-def buffer_lines(lines, prompt="scm> ", show_prompt=False):
-    """Return a Buffer instance iterating through LINES."""
-    if show_prompt:
-        input_lines = lines
-    else:
-        input_lines = LineReader(lines, prompt)
-    return Buffer(tokenize_lines(input_lines))
-
-def read_line(line):
-    """Read a single string LINE as a Scheme expression."""
-    return scheme_read(Buffer(tokenize_lines([line])))
 
 # Interactive loop
+
+def buffer_input():
+    return Buffer(tokenize_lines(InputReader('> ')))
 
 @main
 def read_print_loop():
     """Run a read-print loop for Scheme expressions."""
     while True:
         try:
-            src = buffer_input("read> ")
+            src = buffer_input()
             while src.more_on_line:
                 expression = scheme_read(src)
-                print("str :", expression)
-                print("repr:", repr(expression))
+                print(repr(expression))
         except (SyntaxError, ValueError) as err:
-            print(type(err).__name__ + ":", err)
+            print(type(err).__name__ + ':', err)
         except (KeyboardInterrupt, EOFError):  # <Control>-D, etc.
             return
