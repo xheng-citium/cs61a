@@ -31,6 +31,9 @@ class Place:
         if self.exit:
             self.exit.entrance = self
 
+    def get_name(self):
+        return self.name
+
     def add_insect(self, insect):
         """Add an Insect to this Place.
         There can be at most one Ant in a Place, unless exactly one of them is
@@ -80,7 +83,7 @@ class Place:
 
 class Insect:
     """An Insect, the base class of Ant and Bee, has armor and a Place."""
-
+    name = ""
     is_ant = False
     watersafe = False
 
@@ -88,15 +91,17 @@ class Insect:
         """Create an Insect with an armor amount and a starting Place."""
         self.armor = armor
         self.place = place  # set by Place.add_insect and Place.remove_insect
+    
+    def is_watersafe(self):
+        return self.watersafe
+
+    def get_armor(self):
+        return self.armor
+
+    def get_name(self):
+        return self.name
 
     def reduce_armor(self, amount):
-        """Reduce armor by amount, and remove the insect from its place if it
-        has no armor remaining.
-        >>> test_insect = Insect(5)
-        >>> test_insect.reduce_armor(2)
-        >>> test_insect.armor
-        3
-        """
         self.armor -= amount
         if self.armor <= 0:
             print('{0} ran out of armor and expired'.format(self))
@@ -168,7 +173,14 @@ class Ant(Insect):
         """self is a container, other is not and self's container is empty
         i.e. even if self is a container, it ma not be able to contain other right now"""
         return self.container and (not other.container) and (self.ant is None)
+    
+    def get_food_cost(self):
+        return self.food_cost
 
+    @property
+    def damage_level(self):
+        return self.damage
+    
 class HarvesterAnt(Ant):
     """HarvesterAnt produces 1 additional food per turn for the colony."""
 
@@ -269,7 +281,11 @@ class AntColony:
         self.hive = hive
         self.ant_types = OrderedDict((a.name, a) for a in ant_types)
         self.configure(hive, create_places)
-
+    
+    @property
+    def colony_food(self):
+        return self.food
+        
     def configure(self, hive, create_places):
         """Configure the places in the colony."""
         self.queen = Place('AntQueen')
@@ -289,10 +305,10 @@ class AntColony:
             self.hive.strategy(self)    # Bees invade
             self.strategy(self)         # Ants deploy
             for ant in self.ants:       # Ants take actions. from def ants(self)
-                if ant.armor > 0:
+                if ant.get_armor() > 0:
                     ant.action(self)
             for bee in self.bees:       # Bees take actions
-                if bee.armor > 0:
+                if bee.get_armor() > 0:
                     bee.action(self)
             self.time += 1
         if len(self.queen.bees) > 0:
@@ -459,10 +475,10 @@ class Water(Place):
 
     def add_insect(self, insect):
         """Add insect if it is watersafe, otherwise reduce its armor to 0."""
-        print('added', insect, insect.watersafe)
+        print('added', insect, insect.is_watersafe() )
         Place.add_insect(self, insect)
-        if not insect.watersafe:
-            insect.reduce_armor(insect.armor)
+        if not insect.is_watersafe():
+            insect.reduce_armor(insect.get_armor())
             insect = None
 
 
@@ -541,7 +557,7 @@ class HungryAnt(Ant):
         self.digesting = 0
 
     def eat_bee(self, bee):
-        bee.reduce_armor(bee.armor)
+        bee.reduce_armor(bee.get_armor())
 
     def action(self, colony):
         if self.digesting > 0:
@@ -721,7 +737,7 @@ def apply_effect(effect, bee, duration):
     if bee.affected < duration: # can only be affected for duration time
         bee.action = effect(bee.action)
         bee.affected += 1
-        print(bee_affected)
+        #print(bee.affected)
     else:
         # let the bee regain its original action
         bee.action = bee.orig_action
