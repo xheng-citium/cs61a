@@ -6,10 +6,6 @@ from ucb import main, interact, trace
 from collections import OrderedDict
 import copy, pdb
 
-"""Xin note: 
-  Many cases of reaching inside a class, e.g. place.name is a direct call of member variable
-"""
-
 ################
 # Core Classes #
 ################
@@ -285,6 +281,9 @@ class AntColony:
     @property
     def colony_food(self):
         return self.food
+
+    def get_time(self):
+        return self.time
         
     def configure(self, hive, create_places):
         """Configure the places in the colony."""
@@ -302,6 +301,7 @@ class AntColony:
     def simulate(self):
         """Simulate an attack on the ant colony (i.e., play the game)."""
         while len(self.queen.bees) == 0 and len(self.bees) > 0:
+            #print("Colony time", self.time)
             self.hive.strategy(self)    # Bees invade
             self.strategy(self)         # Ants deploy
             for ant in self.ants:       # Ants take actions. from def ants(self)
@@ -704,9 +704,6 @@ class AntRemover(Ant):
 # Status Effects #
 ##################
 
-def do_nothing(colony):
-    return "do nothing"
-
 def make_slow(action):
     """Return a new action method that calls action every other turn.
 
@@ -722,7 +719,6 @@ def make_slow(action):
 
 def make_stun(action):
     """Return a new action method that does nothing.
-
     action -- An action method of some Bee
     """
     def new_action(colony):

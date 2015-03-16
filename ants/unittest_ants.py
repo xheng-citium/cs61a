@@ -306,30 +306,45 @@ class test_extra_credit(unittest.TestCase):
         self.assertEqual( slow.get_armor(), 0) # should subsequently kill the colocated SlowThrower
         
         self.assertEqual( ants.make_stun(bee.action)(colony), "make_stun: do nothing") 
-
+    
     def test_apply_effect(self):
+        # Test SlowTrhower stuns the bee for 3 turns and on the every oterh turn
         slow = ants.SlowThrower()
         bee = ants.Bee(armor=1)
         colony = create_colony()
         colony.places["tunnel_0_0"].add_insect(slow)
         colony.places["tunnel_0_7"].add_insect(bee)
 
-        for time in range( 8):
-            colony.time = time
+        while colony.time < 8:
             slow.action(colony)
+            
+            prev_loc = int((bee.place.get_name()[-1])) # previous bee location
+            bee.action(colony)
+            if colony.get_time() >= 3 or colony.get_time() % 2 == 0:
+                # If colony time > duration 3 OR is an even number, every bee.action should move bee one location forward
+                self.assertEqual( int(bee.place.get_name()[-1]), prev_loc - 1)
+            else:
+                self.assertEqual( int(bee.place.get_name()[-1]), prev_loc)
+            colony.time += 1       
+        
+        # Test StunTrhower stuns the bee for 1 turns
+        stun = ants.StunThrower()
+        bee = ants.Bee(armor=1)
+        colony = create_colony()
+        colony.places["tunnel_0_0"].add_insect(stun)
+        colony.places["tunnel_0_7"].add_insect(bee)
 
-            if colony.time > 3: # duration time
-                pdb.set_trace()
-                bee.action
-            else: 
-                if colony.time % 2 == 1:
-                    self.assertTrue(bee.action(colony) == "make_slow: do nothing")
-                else: 
-                    pdb.set_trace()
-                    bee.action(colony)
-
-
-        pass
+        while colony.time < 8:
+            stun.action(colony)
+            
+            prev_loc = int((bee.place.get_name()[-1])) # previous bee location
+            bee.action(colony)
+            if colony.get_time() < 1:
+                # If colony time < 1 bee.action should stale
+                self.assertEqual( int(bee.place.get_name()[-1]), prev_loc)
+            else:
+                self.assertEqual( int(bee.place.get_name()[-1]), prev_loc-1)
+            colony.time += 1
         
 
 
