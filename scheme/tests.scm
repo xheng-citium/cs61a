@@ -9,6 +9,69 @@
 ;;; **********************************
 ;;; *** Add more of your own here! ***
 ;;; **********************************
+; Added by xin heng, a bug in scheme_oddp
+
+(odd? 0.1)
+; expect False
+
+(odd? 2.0)
+; expect False
+
+(define tau ( * 2 3.1415926))
+; expect tau
+tau
+; expect 6.2831852
+
+'foo
+; expect foo
+
+'(1 . 4)
+; expect (1 . 4)
+
+'(1 (2 three . (4 . 5)))
+; expect (1 (2 three 4 . 5))
+(car '(a b))
+; expect a
+(eval (cons 'car '('(1 2))))
+; expect 1
+
+(begin (+ 2 3) (+ 5 6))
+; expect 11
+
+(define x (begin (display 3) (newline) (+ 2 3)))
+; expect 3
+; ... x
+
+(+ x 3)
+; expect 8
+
+(begin (print 3) '(+ 2 3))
+; expect 3
+; ... (+ 2 3)
+
+(begin 30 'hello)
+; expect hello
+
+(lambda (x y) (+ x y))
+; expect (lambda (x y) (+ x y))
+
+(lambda (y) (print y) (* y 2))
+; expect (lambda (y) (begin (print y) (* y 2)))
+
+(define f (lambda (x) (* x 2)))
+; expect f
+
+; Problem 9
+(define (f x) (* x 2))
+; expect f
+
+(define (square x) (* x x))
+; expect square
+square
+; expect (lambda (x) (* x x))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; These are examples from several sections of "The Structure
 ;;; and Interpretation of Computer Programs" by Abelson and Sussman.
@@ -54,13 +117,6 @@
       6))
 ; expect 57
 
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Move the following (exit) line to run additional tests. ;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(exit)
-
-
 ;;; 1.1.2
 
 (define size 2)
@@ -79,6 +135,14 @@ size
 (define circumference (* 2 pi radius))
 circumference
 ; expect 62.8318
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Move the following (exit) line to run additional tests. ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(exit)
+
+
 
 ;;; 1.1.4
 
@@ -179,6 +243,7 @@ circumference
 ; expect 1000.000369924366
 
 ;;; 1.3.1
+
 
 (define (cube x) (* x x x))
 (define (sum term a next b)

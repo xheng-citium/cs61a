@@ -1,7 +1,7 @@
 """This module implements the core Scheme interpreter functions, including the
 eval/apply mutual recurrence, environment model, and read-eval-print loop.
 """
-
+import pdb
 from scheme_primitives import *
 from scheme_reader import *
 from ucb import main, trace
@@ -75,6 +75,12 @@ def apply_primitive(procedure, args, env):
     4
     """
     "*** YOUR CODE HERE ***"
+    py_args = [ args[i] for i in range(len(args))] # scheme list -> py list, see __getitem__() of Pair
+    if procedure.use_env: py_args.append(env)
+    try: 
+        return procedure.fn(*py_args)
+    except TypeError:
+        raise SchemeError("Failed call of the function: %s" % procedure.fn.__name__)
 
 ################
 # Environments #
@@ -98,6 +104,10 @@ class Frame:
     def lookup(self, symbol):
         """Return the value bound to SYMBOL.  Errors if SYMBOL is not found."""
         "*** YOUR CODE HERE ***"
+        if symbol in self.bindings: 
+            return self.bindings[symbol]
+        elif self.parent is not None:
+            return self.parent.lookup(symbol)
         raise SchemeError("unknown identifier: {0}".format(str(symbol)))
 
 
@@ -182,9 +192,16 @@ class MuProcedure:
 def do_lambda_form(vals, env):
     """Evaluate a lambda form with parameters VALS in environment ENV."""
     check_form(vals, 2)
-    formals = vals[0]
-    check_formals(formals)
+    formals = vals[0] 
+    check_formals(formals) # check formals is valid agrument list
     "*** YOUR CODE HERE ***"
+    rest = vals.second
+    if len(rest) == 1: 
+        body = rest.first
+    else:
+        body = Pair("begin", rest)
+    return LambdaProcedure(formals, body, env)
+    
 
 def do_mu_form(vals):
     """Evaluate a mu form with parameters VALS."""
@@ -194,21 +211,34 @@ def do_mu_form(vals):
     "*** YOUR CODE HERE ***"
 
 def do_define_form(vals, env):
-    """Evaluate a define form with parameters VALS in environment ENV."""
+    """Evaluate a define form with parameters VALS in environment ENV.
+    vals is a Pair object """
     check_form(vals, 2)
     target = vals[0]
-    if scheme_symbolp(target):
-        check_form(vals, 2, 2)
+    if scheme_symbolp(target): # If target a string
+        check_form(vals, 2, 2) # vals has two items
         "*** YOUR CODE HERE ***"
-    elif isinstance(target, Pair):
+        expr = scheme_eval(vals[1], env)
+
+    elif isinstance(target, Pair): # if targe is a list
         "*** YOUR CODE HERE ***"
+        # Use lambda expr to convert "define (fn x y)" to fn lambda (x y) ...
+        # Goal is to form an argument list that can be passed to do_lambda_form
+        target, formals = target.first, target.second
+        arg_list = Pair(formals, vals.second)
+        expr = do_lambda_form(arg_list, env)
     else:
         raise SchemeError("bad argument to define")
+    
+    env.define(target, expr) # bind fn name and related expression
+    return target
 
 def do_quote_form(vals):
-    """Evaluate a quote form with parameters VALS."""
+    """Evaluate a quote form with parameters VALS.
+    vals is a Pairs object"""
     check_form(vals, 1, 1)
     "*** YOUR CODE HERE ***"
+    return vals.first
 
 
 def do_let_form(vals, env):
@@ -280,6 +310,15 @@ def do_begin_form(vals, env):
     """Evaluate begin form with parameters VALS in environment ENV."""
     check_form(vals, 1)
     "*** YOUR CODE HERE ***"
+    i, N = 0, len(vals) 
+    while i < N:
+        if i < N-1:
+            scheme_eval(vals[i], env)
+        else:
+            return vals[i] # Per instruction, returned value will be auto called by scheme_eval()
+            # return scheme_eval(vals[i], env) # this fails on (begin 30 'hello)
+        i += 1
+    
 
 LOGIC_FORMS = {
         "and": do_and_form,

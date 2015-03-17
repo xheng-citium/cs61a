@@ -135,7 +135,7 @@ def scheme_read(src):
         return val
     elif val == "'":
         "*** YOUR CODE HERE ***"
-        return Pair("quote", Pair(scheme_read(src), nil))
+        return Pair("quote", Pair(scheme_read(src), nil)) # src has been popped, so ' is not in src
     elif val == "(":
         return read_tail(src)
     else:

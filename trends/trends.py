@@ -560,9 +560,9 @@ def draw_map_of_selected_tweets(tweets):
             draw_dot(tweet_location(tweet), sentiment_value(s))
             total.append(sentiment_value(s))
     if len(total) > 0:
-        print ("National average of all selected tweets: %.8f" %(sum(total)/len(total)) )
+        print("National average of all selected tweets: %.8f" %(sum(total)/len(total)) )
     else:
-        print ("Selected tweets are not in US territory")
+        print("Selected tweets are not in US territory")
     wait()
 
 def load_filter_tweets(term, file_name, filter_fn, *args):
