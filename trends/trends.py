@@ -9,6 +9,7 @@ from collections import OrderedDict
 from data import word_sentiments, load_tweets, DATA_PATH
 from datetime import datetime
 from geo import us_states, geo_distance, make_position, longitude, latitude
+from graphics import slide_shape
 from macros import constants, emotion_values, NWORDS
 
 try:
@@ -592,6 +593,25 @@ def swap_tweet_representation(other=[make_tweet_fn, tweet_text_fn,
     swap_to = tuple(other)
     other[:] = [make_tweet, tweet_text, tweet_time, tweet_location]
     make_tweet, tweet_text, tweet_time, tweet_location = swap_to
+
+###################################
+# Use slide_shape for animation
+###################################
+def slide_map_for_query(term="my job", filename="tweets2014.txt"):
+    tweets = load_filter_tweets( term, file_name, filter_fn=None)
+    tweets_by_state = group_tweets_by_state(tweets)
+    state_sentiments = average_sentiments(tweets_by_state)
+    draw_state_sentiments(state_sentiments)
+    total = []
+    for tweet in tweets:
+        if constants.find_state_by == "by_stateborders" and find_state_by_borders(tweet) is None: # if Not in US territory
+            continue
+
+        s = analyze_tweet_sentiment(tweet)
+        if has_sentiment(s):
+            draw_dot(tweet_location(tweet), sentiment_value(s))
+            total.append(sentiment_value(s))
+
 
 @main
 def run(*args):
