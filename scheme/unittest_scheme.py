@@ -112,6 +112,56 @@ class phase_2(unittest.TestCase):
     def test_do_lambda_form(self):
         return
 
+    def test_make_call_frame(self):  
+        global_frame = scheme.create_global_frame()
+        formals, vals = read_line("(a b c)"), read_line("(1 2 3)")
+        frame = global_frame.make_call_frame(formals, vals)
+        self.assertEqual(repr(frame), "<{a: 1, b: 2, c: 3} -> <Global Frame>>")
+        self.assertEqual(repr(frame.parent), "<Global Frame>") # frame's parent is global_frame 
+        
+        formals, vals = read_line("(a b c)"), read_line("(1 2 3 4)")
+        self.assertRaises(SchemeError, global_frame.make_call_frame, formals, vals)
+        formals, vals = read_line("(a b c)"), read_line("(1 2)")
+        self.assertRaises(SchemeError, global_frame.make_call_frame, formals, vals)
+    
+    def test_check_formals(self):
+        scheme.check_formals(read_line("(a b c)")) # run successfully 
+        formals = ("(x #t z)")
+        self.assertRaises(SchemeError, scheme.check_formals, formals) # #t is not valid symbol
+
+        formals = read_line("(a b c b)")
+        self.assertRaises( SchemeError, scheme.check_formals,formals)
+        formals = read_line("(a . b)")
+        self.assertRaises( SchemeError, scheme.check_formals,formals)
+
+    def test_do_and_or_forms(self):
+
+        # do_and_form: return the last sub expr regardless of True or False
+        global_frame = scheme.create_global_frame()
+        val = scheme.do_and_form(read_line("(4 5 6)"), global_frame)
+        self.assertEqual(val, 6 )
+        val = scheme.do_and_form(read_line("(4 5 (= 2 3))"), global_frame)
+        self.assertEqual(val, Pair("=", Pair(2, Pair(3, nil))))
+        
+        # do_or_form: return the last sub expr regardless True or False
+        global_frame = scheme.create_global_frame()
+        val = scheme.do_or_form(read_line("(#f (> 2 3) (= 2 2))"), global_frame)
+        self.assertEqual(val, Pair("=", Pair(2, Pair(2, nil))))
+        val = scheme.do_or_form(read_line("(#f #f (> 2 3))"), global_frame)
+        self.assertEqual(val, Pair(">", Pair(2, Pair(3, nil))))
+        
+        # short circuiting and must be preceded by "quote"
+        val = scheme.do_or_form(read_line("(5 2 1)"), global_frame)
+        self.assertEqual(str(val), "(quote 5)")
+        val = scheme.do_or_form(read_line("(#t 2 1)"), global_frame)
+        self.assertEqual(str(val), "(quote True)")
+
+    
+
+
+
+
+
 
 if __name__ == "__main__":
     unittest.main()

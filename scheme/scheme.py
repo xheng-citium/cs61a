@@ -1,7 +1,7 @@
 """This module implements the core Scheme interpreter functions, including the
 eval/apply mutual recurrence, environment model, and read-eval-print loop.
 """
-import pdb
+import copy, pdb
 from scheme_primitives import *
 from scheme_reader import *
 from ucb import main, trace
@@ -58,8 +58,12 @@ def scheme_apply(procedure, args, env):
     """Apply Scheme PROCEDURE to argument values ARGS in environment ENV."""
     if isinstance(procedure, PrimitiveProcedure):
         return apply_primitive(procedure, args, env)
+
     elif isinstance(procedure, LambdaProcedure):
         "*** YOUR CODE HERE ***"
+        frame = procedure.env.make_call_frame(procedure.formals, args)
+        return scheme_eval(procedure.body, frame)
+    
     elif isinstance(procedure, MuProcedure):
         "*** YOUR CODE HERE ***"
     else:
@@ -129,8 +133,11 @@ class Frame:
         >>> env.make_call_frame(formals, vals)
         <{a: 1, b: 2, c: 3} -> <Global Frame>>
         """
-        frame = Frame(self)
+        frame = Frame(self) # self is parent of frame
         "*** YOUR CODE HERE ***"
+        if len(formals) != len(vals): raise SchemeError("formals and vals have different lengths")
+        for sym, v in zip(formals, vals):
+            frame.define(sym, v)
         return frame
 
     def define(self, sym, val):
@@ -269,10 +276,25 @@ def do_if_form(vals, env):
     """Evaluate if form with parameters VALS in environment ENV."""
     check_form(vals, 2, 3)
     "*** YOUR CODE HERE ***"
+    predicate = scheme_eval(vals[0], env)
+    if scheme_true(predicate): 
+        return vals[1]
+    if len(vals) == 3:
+        return vals[2]
+    return okay 
 
 def do_and_form(vals, env):
     """Evaluate short-circuited and with parameters VALS in environment ENV."""
     "*** YOUR CODE HERE ***"
+    if vals == nil: 
+        return True
+    for i, v in enumerate(vals):
+        result = scheme_eval(v, env)
+        if i < len(vals) - 1: 
+            if scheme_false(result): return False
+        else: # last element
+            return v # return last sub-expression regardless of True or False  
+            # return result  
 
 def quote(value):
     """Return a Scheme expression quoting the Scheme VALUE.
@@ -288,6 +310,14 @@ def quote(value):
 def do_or_form(vals, env):
     """Evaluate short-circuited or with parameters VALS in environment ENV."""
     "*** YOUR CODE HERE ***"
+    if vals == nil: return False
+
+    for i, v in enumerate(vals):
+        result = scheme_eval(v, env)
+        if i < len(vals) - 1:
+            if scheme_true(result): return quote(result)
+        else: 
+            return v
 
 def do_cond_form(vals, env):
     """Evaluate cond form with parameters VALS in environment ENV."""
@@ -304,6 +334,10 @@ def do_cond_form(vals, env):
             test = scheme_eval(clause.first, env)
         if scheme_true(test):
             "*** YOUR CODE HERE ***"
+            if clause.second == nil: # body of cond case is empty
+                return quote(test)
+            else:
+                return do_begin_form(clause.second, env)
     return okay
 
 def do_begin_form(vals, env):
@@ -350,6 +384,22 @@ def check_formals(formals):
     >>> check_formals(read_line("(a b c)"))
     """
     "*** YOUR CODE HERE ***"
+    # formals is immutable, so it will not be pass by reference
+    uniq_symbols = []
+    while formals is not nil:
+        if type(formals) != Pair : 
+            raise SchemeError( "formals is not a well formed list")
+        
+        sym = formals.first
+        if sym in uniq_symbols:
+            raise SchemeError(sym + " appears more than once")
+        uniq_symbols.append(sym)
+        
+        if not scheme_symbolp(sym):
+            raise SchemeError(sym + " is not a valid symbol")
+
+        formals = formals.second # go to the next pair
+
 
 ##################
 # Tail Recursion #

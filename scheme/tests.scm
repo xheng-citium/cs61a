@@ -9,68 +9,112 @@
 ;;; **********************************
 ;;; *** Add more of your own here! ***
 ;;; **********************************
-; Added by xin heng, a bug in scheme_oddp
 
-(odd? 0.1)
-; expect False
+; Added by xin heng
 
-(odd? 2.0)
-; expect False
+; this is a bug in scheme_oddp
+(odd? 0.1) ; expect False
 
-(define tau ( * 2 3.1415926))
-; expect tau
-tau
-; expect 6.2831852
+(odd? 2.0) ; expect False
 
-'foo
-; expect foo
+(define tau ( * 2 3.1415926)) ; expect tau
+tau ; expect 6.2831852
 
-'(1 . 4)
-; expect (1 . 4)
+'foo ; expect foo
 
-'(1 (2 three . (4 . 5)))
-; expect (1 (2 three 4 . 5))
-(car '(a b))
-; expect a
-(eval (cons 'car '('(1 2))))
-; expect 1
+'(1 . 4) ; expect (1 . 4)
 
-(begin (+ 2 3) (+ 5 6))
-; expect 11
+'(1 (2 three . (4 . 5))) ; expect (1 (2 three 4 . 5))
+
+(car '(a b)) ; expect a
+
+(eval (cons 'car '('(1 2)))) ; expect 1
+
+(begin (+ 2 3) (+ 5 6)) ; expect 11
 
 (define x (begin (display 3) (newline) (+ 2 3)))
 ; expect 3
 ; ... x
 
-(+ x 3)
-; expect 8
+(+ x 3) ; expect 8
 
 (begin (print 3) '(+ 2 3))
 ; expect 3
 ; ... (+ 2 3)
 
-(begin 30 'hello)
-; expect hello
+(begin 30 'hello) ; expect hello
 
-(lambda (x y) (+ x y))
-; expect (lambda (x y) (+ x y))
+(lambda (x y) (+ x y)) ; expect (lambda (x y) (+ x y))
 
-(lambda (y) (print y) (* y 2))
-; expect (lambda (y) (begin (print y) (* y 2)))
+(lambda (y) (print y) (* y 2)) ; expect (lambda (y) (begin (print y) (* y 2)))
 
-(define f (lambda (x) (* x 2)))
-; expect f
+(define f (lambda (x) (* x 2))) ; expect f
 
 ; Problem 9
-(define (f x) (* x 2))
-; expect f
+(define (f x) (* x 2)) ; expect f
 
-(define (square x) (* x x))
-; expect square
-square
-; expect (lambda (x) (* x x))
+(define (square x) (* x x)) ; expect square
 
+square ; expect (lambda (x) (* x x))
 
+; Problem 13A
+(if (= 4 2) #t #f) ; expect False
+
+(if (= 4 4) (* 1 2) (+ 3 4)) ; expect 2
+
+(if (= 4 2) #t) ; expect okay
+
+; Problem 14B
+(and) ; expect True
+
+(and #t #t (= 4 5)) ; expect False
+
+(and #t #f 42 (/ 1 0))  ; expect False
+
+(and 4 5 6)  ; expect 6
+
+(or) ; expect False
+
+(or 5 2 1)  ; expect 5
+
+(or 4 #t (/ 1 0))  ; expect 4
+
+(or #f #f (> 2 3)) ; expect False  
+
+(or 'a #f) ; expect 'a'
+
+(or (< 2 3) (> 2 3) 2 'a) ; expect True
+
+(or #f (> 2 3) (= 2 2)) ; expect True
+
+; Problem 15A
+(cond ((= 4 3) 'nope)
+      ((= 4 4) 'hi)
+      (else 'wait)) ; expect hi
+
+(cond ((= 4 3) 'wat)
+      ((= 4 4))
+      (else 'hm)) ; expect True
+
+(cond ((= 4 4) 'here 42)
+      (else 'wat 0)) ; expect 42
+
+(cond (12)) ; expect 12
+
+(cond ((= 4 3))
+      ('hi)) ; expect hi
+
+(cond (#f 1)) ; expect okay
+
+(cond ((> 2 3) 4 5)
+      ((> 2 4) 5 6)
+      ((< 2 5) 6 7)
+      (else 7 8)) ; expect 7
+
+(cond ((> 2 3) (display 'oops) (newline))
+      (else 9)) ; expect 9
+
+(exit)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; These are examples from several sections of "The Structure
@@ -136,14 +180,6 @@ size
 circumference
 ; expect 62.8318
 
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Move the following (exit) line to run additional tests. ;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(exit)
-
-
-
 ;;; 1.1.4
 
 (define (square x) (* x x))
@@ -190,6 +226,13 @@ circumference
   ((if (> b 0) + -) a b))
 (a-plus-abs-b 3 -2)
 ; expect 5
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Move the following (exit) line to run additional tests. ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(exit)
+
 
 ;;; 1.1.7
 
