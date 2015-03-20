@@ -114,7 +114,60 @@ square ; expect (lambda (x) (* x x))
 (cond ((> 2 3) (display 'oops) (newline))
       (else 9)) ; expect 9
 
+; Problem 16
+
+(define x 'hi) ; expect x
+(define y 'bye) ; expect y
+(let ((x 42) (y (* 5 10)))
+     (list x y)) ; expect (42 50)
+(list x y) ; expect (hi bye)
+
+(let ((x 42)) x 1 2) ; expect 2
+
+(let ((x 5))
+     (let ((x 2)
+          (y x))
+          (+ y (* x 2)))
+     ) ; expect 6
+
+(let ((x 2) (y 3))
+ (* x y)) ; expect 6
+
+(let ((x 1)
+      (y 3))
+      (define x (+ x 1))
+      (cons x y) ) ; expect Pair(2, 3)
+
+(let ((x 2) (y 3))
+ (let ((x 6)
+       (foo (lambda (z) (+ x y z)))
+       (x 7))
+  (foo 4) ) ) ; expect 9, b/c x is 2
+
+(let ((a 200))
+ (let ((a 1) (b a)) 
+  b)) ; expect 200, and the next case should fail
+(let ((a 1) (b a)) b) ; expect SchemeError, see the prev case
+
+(let ((a 1 1)) a)   ; expect SchemeError
+(let ((a 1) (b)) a) ; expect SchemeError
+(let ((a 1) (2 2)) a); expect SchemeError
+(let ((a 1) (b 2)) c); expect SchemeError
+
 (exit)
+
+
+; Problem 17
+(define f (mu (x) (+ x y))) ; expect f
+(define g (lambda (x y) (f (+ x x)))) ; expect g
+(g 3 7) ; expect 13
+
+;(define f (lambda (x) (+ x y))) ; expect f
+;(define g (lambda (x y) (f (+ x x)))) ; expect g
+;(g 3 7) ; expect 13
+
+; (mu (x) (display x) (+ x 1)) 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; These are examples from several sections of "The Structure
@@ -226,12 +279,6 @@ circumference
   ((if (> b 0) + -) a b))
 (a-plus-abs-b 3 -2)
 ; expect 5
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Move the following (exit) line to run additional tests. ;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(exit)
 
 
 ;;; 1.1.7
@@ -620,14 +667,12 @@ one-through-four
 (and False (/ 1 0))
 ; expect False
 
-(and True (/ 1 0))
-; expect Error
+(and True (/ 1 0)) ; expect Error
 
 (or 3 (/ 1 0))
 ; expect 3
 
-(or False (/ 1 0))
-; expect Error
+(or False (/ 1 0)) ; expect Error
 
 (or (quote hello) (quote world))
 ; expect hello
@@ -662,8 +707,7 @@ one-through-four
 (print-and-square 12)
 ; expect 12 ; 144
 
-(/ 1 0)
-; expect Error
+(/ 1 0) ; expect Error
 
 (define addx (mu (x) (+ x y)))
 (define add2xy (lambda (x y) (addx (+ x x))))
@@ -682,6 +726,13 @@ one-through-four
     (+ 1 (len (cdr s)))))
 (len '(1 2 3 4))
 ; expect 4
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Move the following (exit) line to run additional tests. ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(exit)
+
 
 
 ;;;;;;;;;;;;;;;;;;;;

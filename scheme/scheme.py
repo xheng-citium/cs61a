@@ -66,6 +66,9 @@ def scheme_apply(procedure, args, env):
     
     elif isinstance(procedure, MuProcedure):
         "*** YOUR CODE HERE ***"
+        frame = env.make_call_frame(procedure.formals, args)
+        return scheme_eval(procedure.body, frame) # evaluated inside parent frame
+
     else:
         raise SchemeError("Cannot call {0}".format(str(procedure)))
 
@@ -202,20 +205,26 @@ def do_lambda_form(vals, env):
     formals = vals[0] 
     check_formals(formals) # check formals is valid agrument list
     "*** YOUR CODE HERE ***"
-    rest = vals.second
-    if len(rest) == 1: 
-        body = rest.first
-    else:
-        body = Pair("begin", rest)
+    body = prep_body(vals)
     return LambdaProcedure(formals, body, env)
     
-
 def do_mu_form(vals):
     """Evaluate a mu form with parameters VALS."""
     check_form(vals, 2)
     formals = vals[0]
     check_formals(formals)
     "*** YOUR CODE HERE ***"
+    body = prep_body(vals)
+    return MuProcedure(formals, body) # env is not needed anymore
+
+def prep_body(values):
+    rest = values.second
+    if len(rest) == 1: 
+        body = rest.first
+    else:
+        body = Pair("begin", rest)
+    return body
+################################
 
 def do_define_form(vals, env):
     """Evaluate a define form with parameters VALS in environment ENV.
@@ -259,12 +268,19 @@ def do_let_form(vals, env):
     # Add a frame containing bindings
     names, values = nil, nil
     "*** YOUR CODE HERE ***"
+    # Per make_call_frame(), we need to make a list of names and a list of values
+    for pair in bindings:
+        check_form(pair, 2, 2) # pair must have length 2 and be a valid expression
+        if not scheme_symbolp(pair.first): 
+            raise SchemeError("{0} is not a valid symbol".format(str(pair.first)))
+        names = Pair(pair.first, names)
+        values = Pair(scheme_eval(pair[1], env), values)
     new_env = env.make_call_frame(names, values)
 
     # Evaluate all but the last expression after bindings, and return the last
     last = len(exprs)-1
     for i in range(0, last):
-        scheme_eval(exprs[i], new_env)
+        scheme_eval(exprs[i], new_env) # evaluate in this new (local) environment
     return exprs[last], new_env
 
 
@@ -350,7 +366,6 @@ def do_begin_form(vals, env):
             scheme_eval(vals[i], env)
         else:
             return vals[i] # Per instruction, returned value will be auto called by scheme_eval()
-            # return scheme_eval(vals[i], env) # this fails on (begin 30 'hello)
         i += 1
     
 
@@ -392,11 +407,11 @@ def check_formals(formals):
         
         sym = formals.first
         if sym in uniq_symbols:
-            raise SchemeError(sym + " appears more than once")
+            raise SchemeError( str(sym) + " appears more than once")
         uniq_symbols.append(sym)
         
         if not scheme_symbolp(sym):
-            raise SchemeError(sym + " is not a valid symbol")
+            raise SchemeError( str(sym) + " is not a valid symbol")
 
         formals = formals.second # go to the next pair
 

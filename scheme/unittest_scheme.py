@@ -6,7 +6,12 @@ import scheme
 from scheme_primitives import SchemeError, PrimitiveProcedure, scheme_add, scheme_oddp
 from ucb import main, trace, interact
 from scheme_tokens import tokenize_lines
-from buffer import Buffer
+from buffer import Buffer  
+
+"""Notes:
+  Expected SchemeError cases usually go here 
+  More successful cases are in tests.scm
+"""
 
 class part_1(unittest.TestCase):
     def test_scheme_read(self):    
@@ -156,10 +161,19 @@ class phase_2(unittest.TestCase):
         val = scheme.do_or_form(read_line("(#t 2 1)"), global_frame)
         self.assertEqual(str(val), "(quote True)")
 
-    
-
-
-
+    def test_do_let_form(self):
+        env = scheme.create_global_frame()
+        result = scheme.scheme_eval(read_line("(let ((x 42) (y (* 5 10))) (list x y)) "), env)
+        self.assertEqual(str(result), "(42 50)")
+        result = scheme.scheme_eval(read_line("(let ((a 1) (b a)) b)"), env)
+        self.assertEqual(result, 1)
+        
+        # SchemeError: too many operands, too few operands, invalid symbol, unknown symbol
+        self.assertRaises(SchemeError, scheme.scheme_eval, read_line("(let ((a 1 1)) a)"), env)
+        self.assertRaises(SchemeError, scheme.scheme_eval, read_line("(let ((a 1) (b)) a)"), env)
+        self.assertRaises(SchemeError, scheme.scheme_eval, read_line("(let ((a 1) (2 2)) a)"), env) 
+        self.assertRaises(SchemeError, scheme.scheme_eval, read_line("(let ((a 1) (b 2)) c)"), env) 
+        
 
 
 
