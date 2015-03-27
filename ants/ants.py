@@ -39,16 +39,17 @@ class Place:
         """
         if insect.is_ant:
             # Phase 4: Special handling for BodyguardAnt
-            assert (self.ant is None) or self.ant.can_contain(insect) or insect.can_contain(self.ant),\
-                    '{0} is full. It cannot insert new ant.'.format(self)
-            
-            if self.ant is None: self.ant = insect
+            if self.ant is None:
+                self.ant = insect
             else:
                 if self.ant.can_contain(insect): # self.ant can contain
                     self.ant.contain_ant(insect)
+
                 elif insect.can_contain(self.ant): 
                     insect.contain_ant(self.ant)
                     self.ant = insect
+                else:
+                    raise AssertionError('{0} is full. Cannot insert new ant.'.format(self))
         else:
             self.bees.append(insect)
         insect.place = self
@@ -60,15 +61,17 @@ class Place:
             If Bodyguard is alone, not protecting anything -> pass
             If Bodyguard protects a fellow ant, it drops first and then its fellow -> pass 
         """
-        if insect.name == "Queen" and insect.firstQueenAnt:
-            return # cannot drop the first QueenAnt
+
         if insect.is_ant:
+            assert self.ant == insect, '{0} is not in {1}'.format(insect, self)
+
             # Phase 4: Special handling for BodyguardAnt and QueenAnt
-            if insect.container and insect.ant is not None: # insect is a Bodyguard, and is protecting other
+            if isinstance(insect, QueenAnt) and insect.firstQueenAnt:
+                return # cannot drop the first QueenAnt
+            if insect.container and insect.ant: # insect is a Bodyguard and is protecting other
                 self.ant = insect.ant
             else:
-                assert self.ant == insect, '{0} is not in {1}'.format(insect, self)
-                self.ant = None 
+                self.ant = None # remove the ant 
         else:
             self.bees.remove(insect)
 
@@ -118,9 +121,6 @@ class Bee(Insect):
 
     name = 'Bee'
     watersafe = True
-    
-    # extra credit
-    affected = 0
 
     def __init__(self, armor, place=None):
         Insect.__init__(self, armor, place)
@@ -173,10 +173,9 @@ class Ant(Insect):
     def get_food_cost(self):
         return self.food_cost
 
-    @property
-    def damage_level(self):
+    def get_damage(self):
         return self.damage
-    
+
 class HarvesterAnt(Ant):
     """HarvesterAnt produces 1 additional food per turn for the colony."""
 
@@ -212,14 +211,13 @@ class ThrowerAnt(Ant):
         This method returns None if there is no such Bee (or none in range).
         """
         this_place = self.place
-        curr_range = 0 # record current range 
-        while this_place is not hive:
+        curr_range = 0 # the current distance
+        while this_place != hive:
+            if (self.min_range <= curr_range <= self.max_range) and len(this_place.bees) > 0:
+                return random_or_none(this_place.bees)
             curr_range += 1
-            if curr_range <= self.max_range and curr_range >= self.min_range: 
-                if len(this_place.bees) > 0:
-                    return random_or_none(this_place.bees)
             this_place = this_place.entrance
-        return None
+
 
     def throw_at(self, target):
         """Throw a leaf at the target Bee, reducing its armor."""
@@ -284,6 +282,13 @@ class AntColony:
 
     def get_time(self):
         return self.time
+
+    def inc_time(self):
+        self.time += 1
+
+    def set_time(self, value):
+        assert value >= 0 and type(value) == int, "Input value must be a non-negative integer"
+        self.time = value
         
     def configure(self, hive, create_places):
         """Configure the places in the colony."""
@@ -479,7 +484,6 @@ class Water(Place):
         Place.add_insect(self, insect)
         if not insect.is_watersafe():
             insect.reduce_armor(insect.get_armor())
-            insect = None
 
 
 class FireAnt(Ant):
@@ -502,20 +506,19 @@ class LongThrower(ThrowerAnt):
     """A ThrowerAnt that only throws leaves at Bees at least 4 places away."""
     name = 'Long'
     food_cost = 3
-    min_range = 5
+    min_range = 4
     implemented = True
 
 class ShortThrower(ThrowerAnt):
     """A ThrowerAnt that only throws leaves at Bees less than 3 places away."""
     name = 'Short'
     food_cost = 3
-    max_range = 3
+    max_range = 2
     implemented = True
 
 # The WallAnt class
 class WallAnt(Ant):       
-    name = 'Wall'
-    damage = 0    
+    name = 'Wall' 
     food_cost = 4
     implemented = True    
     def __init__(self, armor=4):
@@ -531,7 +534,7 @@ class NinjaAnt(Ant):
     implemented = True
 
     def action(self, colony):  
-        for b in list(self.place.bees): # deep-copy, b/c reduce_armor() can remove a bee from self.place.bees
+        for b in list(self.place.bees): # deep-copy, b/c reduce_armor can remove a bee from self.place.bees
             b.reduce_armor(self.damage) 
 
 
@@ -564,8 +567,7 @@ class HungryAnt(Ant):
             self.digesting -= 1
             return
         if self.place.bees:
-            bee = random_or_none(self.place.bees)
-            self.eat_bee(bee)
+            self.eat_bee(random_or_none(self.place.bees))
             self.digesting = self.time_to_digest
 
 class BodyguardAnt(Ant):
@@ -584,7 +586,7 @@ class BodyguardAnt(Ant):
         self.ant = ant
 
     def action(self, colony):
-        if self.ant is not None:
+        if self.ant:
             self.ant.action(colony)
 
 
@@ -595,12 +597,12 @@ class QueenPlace:
     (2) The place in which the QueenAnt resides.
     """
     def __init__(self, colony_queen, ant_queen):
-        self.places = list(set([colony_queen, ant_queen.place]))
+        self._ant_queen = ant_queen
+        self._colony_queen = colony_queen 
 
     @property
     def bees(self):
-        bs = [b for p in self.places for b in p.bees]
-        return bs
+        return self._ant_queen.bees + self._colony_queen.bees
 
 class QueenAnt(ScubaThrower):  
     """The Queen of the colony.  The game is over if a bee enters her place."""
@@ -611,13 +613,12 @@ class QueenAnt(ScubaThrower):
 
     def __init__(self):
         ScubaThrower.__init__(self, armor=1)
+        QueenAnt.ctr_QueenAnt += 1
+        self.firstQueenAnt = (QueenAnt.ctr_QueenAnt == 1) # first queen or an Imposter
         
         self.has_doubled_damage = False # track if QueenAnt has doubled damage of fellow ants
         self.doubled_ants = [] # track what ants have been doubled
 
-        QueenAnt.ctr_QueenAnt += 1
-        if QueenAnt.ctr_QueenAnt == 1: self.firstQueenAnt = True
-        else: self.firstQueenAnt = False # Imposter
 
     def action(self, colony):
         """ Main function of the class
@@ -629,7 +630,7 @@ class QueenAnt(ScubaThrower):
             3: double damanges of fellow ants only once
             4: record locations of colony queen and QueenAnt -> needed by an early game over
         """
-        # 1. sell kill if imposter queen
+        # 1. self kill if imposter queen
         if not self.firstQueenAnt: 
             self.reduce_armor(self.armor)
             return
@@ -637,58 +638,46 @@ class QueenAnt(ScubaThrower):
         # 2. Throws a leaf
         ScubaThrower.action(self, colony)
         
-        # 3 Reach into the if statement once and only
+        # 3 double once and only once
         if not self.has_doubled_damage:
-            self.run_fn_over_entire_tunnel(self.double_damage_at_this_place) # run function in entire tunnel
+            run_fn_over_entire_tunnel(self.double_damage, self.place) # run function in entire tunnel starting from self.place
             self.has_doubled_damage = True
         
-        # 4 Track both colony queen and QueenAnt; Trigger a game over if find a bee
-        colony.queen = QueenPlace(colony.queen, self)
+        # 4 Track both colony queen and QueenAnt; Trigger a game over if finding a bee
+        colony.queen = QueenPlace(colony.queen, self.place)
 
-    def double_damage_at_this_place(self, this_place):
+    def double_damage(self, this_place):
         """ If found an ant at this place, Double its damage """
-        if this_place.ant is None or this_place.ant.name == "Queen": return # do not double QueenAnt herself
+        if this_place.ant is None or isinstance(this_place.ant, QueenAnt): 
+            return # do nothing if empty or QueenAnt herself
 
-        # this_ant = which ant to double
+        # this_ant = the selected ant that will be doubled
         if this_place.ant.container:
-            if this_place.ant.ant is not None: # protected ant
+            if this_place.ant.ant:
                 this_ant = this_place.ant.ant
-            else: this_ant = None # A standalone container, i.e. Bodyguard does not double damage
+            else:
+                this_ant = None # A empty container
         else:
             this_ant = this_place.ant
         
-        if this_ant is not None:
+        if this_ant:
             this_ant.damage *= 2
+            assert this_ant not in self.doubled_ants, "{0} appears to be doubled twice".format(this_ant)
             self.doubled_ants.append(this_ant) # maintain a list of doubled ants
+
        
-    def run_fn_over_entire_tunnel(self, fn):   
-        """Run the given function over the tunnel in both directions sequentially"""
-        this_place = self.place
-        while this_place is not None:
-            fn(this_place)
-            this_place = this_place.entrance
+def run_fn_over_entire_tunnel(fn, curr_place):   
+    """Run the given function over the tunnel in both directions sequentially"""
+    this_place = curr_place
+    while this_place is not None:
+        fn(this_place)
+        this_place = this_place.entrance
 
-        this_place = self.place
-        while this_place is not None:
-            fn(this_place)
-            this_place = this_place.exit
-    
-    """ Three purposes for the below check on ants damage levels
-        1: Verify ant damange is indeeded doubled
-        2. practice functional programming with run_fn_over_entire_tunnel(self, fn)
-        3. Verify pass by reference for this_ant in function doubleDamage_atPlace """
-    def check_ants_damage_levels(self):
-        print("\n\nCheck ants damage levels:")
-        self.run_fn_over_entire_tunnel(self.check_ant_damage_at_this_place)
+    this_place = curr_place
+    while this_place is not None:
+        fn(this_place)
+        this_place = this_place.exit
 
-    def check_ant_damage_at_this_place(self, this_place):     
-        if this_place.ant is None or this_place.ant.name == "Queen": return
-
-        if this_place.ant.container:
-            if this_place.ant.ant is not None: # protected ant
-                print("%s: damage level = %d" %(this_place.ant.ant.name, this_place.ant.ant.damage))
-        else:
-            print("%s: damage level = %d" %(this_place.ant.name, this_place.ant.damage))
 
 class AntRemover(Ant):
     """Allows the player to remove ants from the board in the GUI."""
@@ -711,10 +700,8 @@ def make_slow(action):
     """
 
     def new_action(colony):
-        assert type(colony) == AntColony, "colony must be an AntColony object"
-        if colony.time % 2 == 0: 
-            return action(colony)
-        else: return "make_slow: do nothing" 
+        assert type(colony) == AntColony, "Input is not an AntColony object"
+        return action(colony) if colony.time % 2 == 0 else None
     return new_action
 
 def make_stun(action):
@@ -722,21 +709,28 @@ def make_stun(action):
     action -- An action method of some Bee
     """
     def new_action(colony):
-        assert type(colony) == AntColony, "colony must be an AntColony object"
-        return "make_stun: do nothing"
+        assert type(colony) == AntColony, "Input is not an AntColony object"
     return new_action
 
 def apply_effect(effect, bee, duration):
     """Apply a status effect to a Bee that lasts for duration turns."""
-    assert effect in [make_slow, make_stun], "Invalid effect function"
+    assert effect in [make_slow, make_stun], "Invalid effect input"
+    assert type(duration) == int, "duration must be an integer"
 
-    if bee.affected < duration: # can only be affected for duration time
-        bee.action = effect(bee.action)
-        bee.affected += 1
-        #print(bee.affected)
-    else:
-        # let the bee regain its original action
-        bee.action = bee.orig_action
+    orig_action = bee.action
+    new_action  = effect(bee.action)
+
+    def make_action(colony):
+        nonlocal duration # make it nonlocal so that duraton can be decreased by 1 whenever apply_effect is called
+
+        if duration <= 0:
+            bee.action = orig_action
+            bee.action(colony)
+        else:
+            duration -= 1
+            new_action(colony)
+
+    bee.action = make_action
 
 class SlowThrower(ThrowerAnt):
     """ThrowerAnt that causes Slow on Bees."""
