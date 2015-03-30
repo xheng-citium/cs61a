@@ -43,7 +43,9 @@ INSECT_FILES = {'Worker': 'img/ant_harvester.gif',
                 'Scuba': 'img/ant_scuba.gif',
                 'Queen': 'img/ant_queen.gif',
                 'Bee': 'img/bee.gif',
-                'Remover': 'img/remover.gif'}
+                'Remover': 'img/remover.gif',
+                'Destroyer': 'img/destroyer.gif'}
+
 TUNNEL_FILE = 'img/tunnel.gif'
 ANT_IMAGE_WIDTH = 66
 ANT_IMAGE_HEIGHT = 71
@@ -76,7 +78,7 @@ class AntsGUI:
     def initialize_colony_graphics(self, colony):
         """Create canvas, control panel, places, and labels."""
         self.initialized = True
-        self.canvas = graphics.Canvas()
+        self.canvas = graphics.Canvas(width=1600, height=900)
         self.food_text = self.canvas.draw_text('Food: 1  Time: 0', (20, 20))
         self.ant_text = self.canvas.draw_text('Ant selected: None', (20, 140))
         self._click_rectangles = list()
