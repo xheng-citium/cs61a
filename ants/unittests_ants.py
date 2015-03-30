@@ -345,7 +345,28 @@ class phase_4(unittest.TestCase):
 
 
 class extra_credit(unittest.TestCase):
-    def test_slow_stun_parameters(self):
+    def test_destroyer(self):       
+        colony = create_colony()
+        body = [ ants.BodyguardAnt() for _ in range(2)] 
+        thrower, queen = ants.ThrowerAnt(), ants.QueenAnt()
+        harv     = ants.HarvesterAnt()
+        destroyer = ants.AntDestroyer()
+
+        colony.places["tunnel_0_0"].add_insect(body[0])
+        colony.places["tunnel_0_0"].add_insect(queen)
+        colony.places["tunnel_0_2"].add_insect(harv)
+        colony.places["tunnel_0_5"].add_insect(thrower)
+        colony.places["tunnel_0_5"].add_insect(body[1])
+        
+        colony.places["tunnel_0_6"].add_insect(destroyer)
+        destroyer.action(colony)
+        
+        # Test if all ants are gone except the queen ant
+        find_ant = lambda place: place.ant
+        antlist = ants.run_fn_over_entire_tunnel(find_ant, colony.places["tunnel_0_0"])
+        self.assertEqual(set([None, queen]), set(antlist))
+
+    def test_slow_stun_params(self):
         slow = ants.SlowThrower()
         stun = ants.StunThrower()
         self.assertEqual(4, slow.get_food_cost(), "SlowThrower has wrong cost")
@@ -456,7 +477,7 @@ def create_colony():
     ant_types = [ants.HarvesterAnt, ants.ThrowerAnt, ants.FireAnt,   ants.ShortThrower, 
                  ants.LongThrower,  ants.WallAnt,    ants.NinjaAnt,  ants.ScubaThrower, 
                  ants.HungryAnt,    ants.BodyguardAnt, ants.QueenAnt,ants.SlowThrower, 
-                 ants.StunThrower]
+                 ants.StunThrower,  ants.AntDestroyer]
     return ants.AntColony(None, hive, ant_types, ants.test_layout, 10)
 
 

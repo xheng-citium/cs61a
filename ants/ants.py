@@ -653,7 +653,7 @@ class QueenAnt(ScubaThrower):
 
         # this_ant = the selected ant that will be doubled
         if this_place.ant.container:
-            if this_place.ant.ant:
+            if this_place.ant.ant and (not isinstance(this_place.ant.ant, QueenAnt)):
                 this_ant = this_place.ant.ant
             else:
                 this_ant = None # A empty container
@@ -669,14 +669,17 @@ class QueenAnt(ScubaThrower):
 def run_fn_over_entire_tunnel(fn, curr_place):   
     """Run the given function over the tunnel in both directions sequentially"""
     this_place = curr_place
+    output = []
     while this_place is not None:
-        fn(this_place)
+        output.append( fn(this_place))
         this_place = this_place.entrance
 
     this_place = curr_place
     while this_place is not None:
-        fn(this_place)
+        output.append( fn(this_place))
         this_place = this_place.exit
+    
+    return output
 
 
 class AntRemover(Ant):
@@ -687,6 +690,28 @@ class AntRemover(Ant):
 
     def __init__(self):
         Ant.__init__(self, 0)
+
+# NEW
+class AntDestroyer(Ant):
+    """ Remove all ants, except it is a QueenAnt"""
+    name = "Destroyer"
+    food_cost   = 10
+    implemented = True
+
+    def __init__(self):
+        Ant.__init__(self)
+
+    def action(self, colony):
+        run_fn_over_entire_tunnel(self.remove_ant, self.place)
+
+    def remove_ant(self, this_place):
+        if this_place.ant is None or isinstance(this_place.ant, QueenAnt): 
+            return
+
+        if this_place.ant.container and isinstance(this_place.ant.ant, QueenAnt):
+            this_place.ant = this_place.ant.ant
+        else:
+            this_place.ant = None
 
 
 ##################
