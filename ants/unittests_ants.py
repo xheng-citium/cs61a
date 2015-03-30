@@ -338,10 +338,12 @@ class phase_4(unittest.TestCase):
         colony = create_colony()
         colony.places["tunnel_0_3"].add_insect(queenant)
         
-        print("\nVerify the run_fn_over_entire_tunnel() follows the right sequence")
-        print_place = lambda p: print(p.get_name())
-        ants.run_fn_over_entire_tunnel(print_place, colony.places["tunnel_0_3"])
-        print("Nothing to assert but to ensure the sequence is 3,4,5,6,7,Hive,3,2,1,0,AntQueen")
+        # Verify the run_fn_over_entire_tunnel() follows the right sequence
+        placeName = lambda p: p.get_name()
+        places = ants.run_fn_over_entire_tunnel(placeName, colony.places["tunnel_0_3"])
+        self.assertEqual(['tunnel_0_3', 'tunnel_0_4', 'tunnel_0_5', 'tunnel_0_6', 
+                          'tunnel_0_7', 'Hive', 'tunnel_0_3', 'tunnel_0_2', 'tunnel_0_1', 
+                          'tunnel_0_0', 'AntQueen'], places)
 
 
 class extra_credit(unittest.TestCase):
@@ -351,6 +353,7 @@ class extra_credit(unittest.TestCase):
         thrower, queen = ants.ThrowerAnt(), ants.QueenAnt()
         harv     = ants.HarvesterAnt()
         destroyer = ants.AntDestroyer()
+        self.assertEqual(10, destroyer.get_food_cost())
 
         colony.places["tunnel_0_0"].add_insect(body[0])
         colony.places["tunnel_0_0"].add_insect(queen)
@@ -404,26 +407,33 @@ class extra_credit(unittest.TestCase):
         bee.action(colony)
         self.assertEqual("tunnel_0_2", bee.place.name) # bee moves
 
+    def test_apply_effect(self): 
+        slow = ants.SlowThrower()
+        bee = ants.Bee(armor=1)
+        self.assertRaises(AssertionError, ants.apply_effect, "ants.make_slow", bee, 3)
+        self.assertRaises(AssertionError, ants.apply_effect, ants.make_slow, slow, 3)
+        self.assertRaises(AssertionError, ants.apply_effect, ants.make_slow, bee, 3.0) # float number not ok
+       
+
     def test_slow_effect(self):
         # Test SlowTrhower stuns the bee for 3 turns and on the every other turn
         slow = ants.SlowThrower()
+        slow_duration = 3
         bee = ants.Bee(armor=1)
         colony = create_colony()
         colony.places["tunnel_0_0"].add_insect(slow)
         colony.places["tunnel_0_7"].add_insect(bee)
         
+        slow.action(colony)
         while colony.get_time() < 8:
-            slow.action(colony)
-            
-            prev_loc = int((bee.place.get_name()[-1])) # previous bee location
-            bee.action(colony)
-            if colony.get_time() >= 6 or colony.get_time() % 2 == 0:
-                # Every bee.action should move bee one location forward
-                self.assertEqual(prev_loc-1, int(bee.place.get_name()[-1]))
-            else:
-                # bee does not move
-                self.assertEqual(prev_loc , int(bee.place.get_name()[-1]))
             colony.inc_time() 
+            prev_loc = int((bee.place.get_name()[-1])) # previous bee location
+            
+            bee.action(colony)
+            if colony.get_time() > slow_duration or colony.get_time() % 2 == 0:
+                self.assertEqual(prev_loc-1, int(bee.place.get_name()[-1]))# bee should have moved one step
+            else:
+                self.assertEqual(prev_loc , int(bee.place.get_name()[-1])) # bee does not move
 
     def test_stun_effect(self):
         # Test StunThrower stuns the bee for 1 turn
@@ -433,40 +443,82 @@ class extra_credit(unittest.TestCase):
         colony.places["tunnel_0_0"].add_insect(stun)
         colony.places["tunnel_0_7"].add_insect(bee)
 
+        stun.action(colony)
         while colony.get_time() < 8:
-            stun.action(colony)
-            
+            colony.inc_time() 
             prev_loc = int((bee.place.get_name()[-1])) # previous bee location
+            
             bee.action(colony)
-            if colony.get_time() < 1:
+            if colony.get_time() == 1:
                 # bee should not move
                 self.assertEqual(prev_loc, int(bee.place.get_name()[-1]))
             else:
                 self.assertEqual(prev_loc-1, int(bee.place.get_name()[-1]))
-            colony.inc_time() 
 
-    def test_multiple_effects(self):
-        slow = ants.SlowThrower()
+    def test_multiple_stun(self):
         stun = ants.StunThrower()
-        bee  = ants.Bee(armor=1)
+        bee = ants.Bee(1)
         colony = create_colony()
-        colony.places["tunnel_0_0"].add_insect(slow)
-        colony.places["tunnel_0_1"].add_insect(stun)
-        colony.places["tunnel_0_7"].add_insect(bee)
+        colony.places["tunnel_0_0"].add_insect(stun)
+        colony.places["tunnel_0_4"].add_insect(bee)
         
-        while colony.get_time() < 8:
+        # If bee is stunned for 3 times, it will not move for 3 times
+        num = 3
+        for _ in range(num): 
             stun.action(colony)
-            slow.action(colony)
-            
-            prev_loc = int((bee.place.get_name()[-1])) # previous bee location
+
+        for _ in range(num):
             bee.action(colony)
-            if colony.get_time() >= 3 or colony.get_time() % 2 == 0:
-                # Every bee.action should move bee one location forward
-                self.assertEqual(prev_loc-1, int(bee.place.get_name()[-1]))
-            else:
-                # bee does not move
-                self.assertEqual(prev_loc , int(bee.place.get_name()[-1]))
-            colony.inc_time() 
+            self.assertEqual("tunnel_0_4", bee.place.get_name())
+
+    def test_slow_stun_stack(self):
+        """This is a translation of the autograder: tests/qEC.py """
+
+        stun = ants.StunThrower()
+        slow = ants.SlowThrower()
+        bee = ants.Bee(armor=1)
+        colony = create_colony()
+        colony.places["tunnel_0_0"].add_insect(stun)
+        colony.places["tunnel_0_1"].add_insect(slow)
+        colony.places["tunnel_0_4"].add_insect(bee)
+        
+        # slow bee 3 times and stun it once
+        for _ in range(3):
+            slow.action(colony)
+        stun.action(colony) 
+ 
+        colony.set_time(0)
+        bee.action(colony) # stunned
+        self.assertEqual("tunnel_0_4", bee.place.get_name() )
+ 
+        colony.inc_time()
+        bee.action(colony) # slowed thrice
+        self.assertEqual("tunnel_0_4", bee.place.get_name() )
+ 
+        colony.inc_time()
+        bee.action(colony) # slowed thrice
+        self.assertEqual("tunnel_0_3", bee.place.get_name())
+ 
+        colony.inc_time()
+        bee.action(colony) # slowed thrice
+        self.assertEqual("tunnel_0_3", bee.place.get_name() )
+ 
+        colony.inc_time()
+        bee.action(colony) # slowed twice
+        self.assertEqual("tunnel_0_2", bee.place.get_name())
+ 
+        colony.inc_time()
+        bee.action(colony) # slowed twice
+        self.assertEqual("tunnel_0_2", bee.place.get_name())
+ 
+        colony.inc_time()
+        bee.action(colony) # slowed once
+        self.assertEqual("tunnel_0_1", bee.place.get_name())
+ 
+        colony.inc_time()
+        bee.action(colony) # no effect any more
+        self.assertEqual(0, slow.get_armor()) # slow is killed by bee
+ 
 
 
 ##############################################################

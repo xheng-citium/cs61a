@@ -221,7 +221,8 @@ class ThrowerAnt(Ant):
 
     def throw_at(self, target):
         """Throw a leaf at the target Bee, reducing its armor."""
-        if target: target.reduce_armor(self.damage)
+        if target: 
+            target.reduce_armor(self.damage)
 
     def action(self, colony):
         """Throw a leaf at the nearest Bee in range."""
@@ -283,8 +284,8 @@ class AntColony:
     def get_time(self):
         return self.time
 
-    def inc_time(self):
-        self.time += 1
+    def inc_time(self, v=1):
+        self.time += v
 
     def set_time(self, value):
         assert value >= 0 and type(value) == int, "Input value must be a non-negative integer"
@@ -739,23 +740,23 @@ def make_stun(action):
 
 def apply_effect(effect, bee, duration):
     """Apply a status effect to a Bee that lasts for duration turns."""
-    assert effect in [make_slow, make_stun], "Invalid effect input"
-    assert type(duration) == int, "duration must be an integer"
+    assert effect in [make_slow, make_stun], "Input: effect is not valid"
+    assert type(duration) == int, "Input duration must be an int"
+    assert isinstance(bee, Bee), "Input: bee must be of Bee type"
 
     orig_action = bee.action
     new_action  = effect(bee.action)
 
-    def make_action(colony):
-        nonlocal duration # make it nonlocal so that duraton can be decreased by 1 whenever apply_effect is called
-
+    def make_bee_action(colony):
+        # This high-order function adds a necessary argument for action: colony 
         if duration <= 0:
             bee.action = orig_action
             bee.action(colony)
         else:
+            nonlocal duration # make it nonlocal so that duraton can be decreased by 1
             duration -= 1
             new_action(colony)
-
-    bee.action = make_action
+    bee.action = make_bee_action
 
 class SlowThrower(ThrowerAnt):
     """ThrowerAnt that causes Slow on Bees."""
