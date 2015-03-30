@@ -57,11 +57,9 @@ class Place:
     def remove_insect(self, insect):
         """
         Remove an Insect from this Place.
-            Do nothing on 1st QueenAnt -> pass
-            If Bodyguard is alone, not protecting anything -> pass
-            If Bodyguard protects a fellow ant, it drops first and then its fellow -> pass 
+            Do nothing on 1st QueenAnt
+            If Bodyguard protects a fellow ant, Bodyguard drops and fellow ant takes its place
         """
-
         if insect.is_ant:
             assert self.ant == insect, '{0} is not in {1}'.format(insect, self)
 
@@ -187,7 +185,7 @@ class HarvesterAnt(Ant):
         """Produce 1 additional food for the colony.
         colony -- The AntColony, used to access game state information.
         """
-        colony.food += 1 
+        colony.inc_food(1)
 
 def random_or_none(s):
     """Return a random element of sequence s, or return None if s is empty."""
@@ -286,6 +284,9 @@ class AntColony:
 
     def inc_time(self, v=1):
         self.time += v
+    
+    def inc_food(self, v=1):
+        self.food += v
 
     def set_time(self, value):
         assert value >= 0 and type(value) == int, "Input value must be a non-negative integer"
@@ -622,53 +623,38 @@ class QueenAnt(ScubaThrower):
 
 
     def action(self, colony):
-        """ Main function of the class
-        A queen ant throws a leaf, but also doubles the damage of ants in her tunnel.
+        """A queen ant throws a leaf, but also doubles the damage of ants in her tunnel.
         Impostor queens do only one thing: reduce their own armor to 0.
-        Four steps:
-            1: self-kill if is an imposter queen
-            2: throw a leaf
-            3: double damanges of fellow ants only once
-            4: record locations of colony queen and QueenAnt -> needed by an early game over
-        """
-        # 1. self kill if imposter queen
+        Four steps: 1: self-kill if is an imposter queen
+                    2: throw a leaf
+                    3: double damanges of fellow ants only once
+                    4: record locations of colony queen and QueenAnt -> needed by an early game over """
         if not self.firstQueenAnt: 
-            self.reduce_armor(self.armor)
+            self.reduce_armor(self.armor) # 1. self kill if imposter queen
             return
-        
-        # 2. Throws a leaf
-        ScubaThrower.action(self, colony)
-        
+        ScubaThrower.action(self, colony) # 2. Throws a leaf
+
         # 3 double once and only once
         if not self.has_doubled_damage:
-            run_fn_over_entire_tunnel(self.double_damage, self.place) # run function in entire tunnel starting from self.place
+            run_fn_over_entire_tunnel(self.double_damage, self.place) # run double_damage in entire tunnel starting from self.place
             self.has_doubled_damage = True
         
         # 4 Track both colony queen and QueenAnt; Trigger a game over if finding a bee
         colony.queen = QueenPlace(colony.queen, self.place)
 
-    def double_damage(self, this_place):
-        """ If found an ant at this place, Double its damage """
-        if this_place.ant is None or isinstance(this_place.ant, QueenAnt): 
-            return # do nothing if empty or QueenAnt herself
 
-        # this_ant = the selected ant that will be doubled
-        if this_place.ant.container:
-            if this_place.ant.ant and (not isinstance(this_place.ant.ant, QueenAnt)):
-                this_ant = this_place.ant.ant
-            else:
-                this_ant = None # A empty container
-        else:
-            this_ant = this_place.ant
-        
+    def double_damage(self, this_place):
+        """ If found a proper ant at this place, Double its damage """
+        this_ant = find_doubleable_ant(this_place)
         if this_ant:
             this_ant.damage *= 2
             assert this_ant not in self.doubled_ants, "{0} appears to be doubled twice".format(this_ant)
             self.doubled_ants.append(this_ant) # maintain a list of doubled ants
+   
 
-       
 def run_fn_over_entire_tunnel(fn, curr_place):   
-    """Run the given function over the tunnel in both directions sequentially"""
+    """Run the given function over the tunnel in both directions sequentially
+       It could have started from the left most and go one direction, but I implement it in a way that it starts from where the ant is at"""
     this_place = curr_place
     output = []
     while this_place is not None:
@@ -680,19 +666,33 @@ def run_fn_over_entire_tunnel(fn, curr_place):
         output.append( fn(this_place))
         this_place = this_place.exit
     
-    return output
+    return output    
+
+
+def find_doubleable_ant(this_place):
+    if this_place.ant is None or isinstance(this_place.ant, QueenAnt): 
+        return # do nothing if empty or QueenAnt herself
+
+    # this_ant = the selected ant that will be doubled
+    if this_place.ant.container:
+        if this_place.ant.ant and (not isinstance(this_place.ant.ant, QueenAnt)):
+            this_ant = this_place.ant.ant
+        else:
+            this_ant = None # A empty container
+    else:
+        this_ant = this_place.ant
+    return this_ant
 
 
 class AntRemover(Ant):
     """Allows the player to remove ants from the board in the GUI."""
-
     name = 'Remover'
     implemented = True
 
     def __init__(self):
         Ant.__init__(self, 0)
 
-# NEW
+# NEW ANT TYPE
 class AntDestroyer(Ant):
     """ Remove all ants, except it is a QueenAnt"""
     name = "Destroyer"
@@ -703,16 +703,16 @@ class AntDestroyer(Ant):
         Ant.__init__(self)
 
     def action(self, colony):
-        run_fn_over_entire_tunnel(self.remove_ant, self.place)
+        run_fn_over_entire_tunnel(remove_ant, self.place)
 
-    def remove_ant(self, this_place):
-        if this_place.ant is None or isinstance(this_place.ant, QueenAnt): 
-            return
+def remove_ant(this_place):
+    if this_place.ant is None or isinstance(this_place.ant, QueenAnt): 
+        return
 
-        if this_place.ant.container and isinstance(this_place.ant.ant, QueenAnt):
-            this_place.ant = this_place.ant.ant
-        else:
-            this_place.ant = None
+    if this_place.ant.container and isinstance(this_place.ant.ant, QueenAnt):
+        this_place.ant = this_place.ant.ant
+    else:
+        this_place.ant = None
 
 
 ##################
@@ -724,11 +724,11 @@ def make_slow(action):
 
     action -- An action method of some Bee
     """
-
     def new_action(colony):
         assert type(colony) == AntColony, "Input is not an AntColony object"
         return action(colony) if colony.time % 2 == 0 else None
     return new_action
+
 
 def make_stun(action):
     """Return a new action method that does nothing.
@@ -738,6 +738,7 @@ def make_stun(action):
         assert type(colony) == AntColony, "Input is not an AntColony object"
     return new_action
 
+
 def apply_effect(effect, bee, duration):
     """Apply a status effect to a Bee that lasts for duration turns."""
     assert effect in [make_slow, make_stun], "Input: effect is not valid"
@@ -746,7 +747,7 @@ def apply_effect(effect, bee, duration):
 
     orig_action = bee.action
     new_action  = effect(bee.action)
-
+    
     def make_bee_action(colony):
         # This high-order function adds a necessary argument for action: colony 
         if duration <= 0:
@@ -757,6 +758,7 @@ def apply_effect(effect, bee, duration):
             duration -= 1
             new_action(colony)
     bee.action = make_bee_action
+
 
 class SlowThrower(ThrowerAnt):
     """ThrowerAnt that causes Slow on Bees."""
@@ -784,3 +786,6 @@ class StunThrower(ThrowerAnt):
 @main
 def run(*args):
     start_with_strategy(args, interactive_strategy)
+
+
+
