@@ -6,6 +6,12 @@ from ucb import main, interact, trace
 from collections import OrderedDict
 import copy, pdb
 
+#########################
+# Util functions
+#########################
+def apply_to_all(map_fn, seq):
+    return [map_fn(s) for s in seq]
+
 ################
 # Core Classes #
 ################
@@ -282,6 +288,9 @@ class AntColony:
 
     def get_time(self):
         return self.time
+
+    def get_places(self):
+        return self.places
 
     def inc_time(self, v=1):
         self.time += v
@@ -632,14 +641,15 @@ class QueenAnt(ScubaThrower):
         if not self.firstQueenAnt: 
             self.reduce_armor(self.armor) # 1. self kill if imposter queen
             return
+        
         ScubaThrower.action(self, colony) # 2. Throws a leaf
 
-        # 3 double once and only once
-        run_fn_over_entire_tunnel(self.double_damage, self.place) # run double_damage in entire tunnel starting from self.place
+        # 3 double damage of fellow ant
+        run_fn_over_entire_tunnel(self.double_damage, self.place)
         
-        # 4 Track both colony queen and QueenAnt; Trigger a game over if finding a bee
+        # 4 Track both places for colony queen and QueenAnt -> trigger a game over if finding a bee
         colony.queen = QueenPlace(colony.queen, self.place)
-
+        return
 
     def double_damage(self, this_place):
         """ Find a doubleable ant and check it against the list of doubled_ants"""
@@ -667,14 +677,14 @@ def run_fn_over_entire_tunnel(fn, curr_place):
 
 def find_doubleable_ant(this_place):
     if this_place.ant is None or isinstance(this_place.ant, QueenAnt): 
-        return # do nothing if empty or QueenAnt herself
+        return # do nothing
 
-    # this_ant = the selected ant that will be doubled
+    # this_ant = the selected ant to be doubled
     if this_place.ant.container:
         if this_place.ant.ant and (not isinstance(this_place.ant.ant, QueenAnt)):
             this_ant = this_place.ant.ant
         else:
-            this_ant = None # A empty container
+            this_ant = None
     else:
         this_ant = this_place.ant
     return this_ant
@@ -687,28 +697,6 @@ class AntRemover(Ant):
 
     def __init__(self):
         Ant.__init__(self, 0)
-
-# NEW ANT TYPE
-class AntDestroyer(Ant):
-    """ Remove all ants, except it is a QueenAnt"""
-    name = "Destroyer"
-    food_cost   = 10
-    implemented = True
-
-    def __init__(self):
-        Ant.__init__(self)
-
-    def action(self, colony):
-        run_fn_over_entire_tunnel(remove_ant, self.place)
-
-def remove_ant(this_place):
-    if this_place.ant is None or isinstance(this_place.ant, QueenAnt): 
-        return
-
-    if this_place.ant.container and isinstance(this_place.ant.ant, QueenAnt):
-        this_place.ant = this_place.ant.ant
-    else:
-        this_place.ant = None
 
 
 ##################
@@ -745,12 +733,11 @@ def apply_effect(effect, bee, duration):
     new_action  = effect(bee.action)
     
     def make_bee_action(colony):
-        # This high-order function adds a necessary argument for action: colony 
+        nonlocal duration # make it nonlocal so that duraton can be decreased by 1
         if duration <= 0:
             bee.action = orig_action
             bee.action(colony)
         else:
-            nonlocal duration # make it nonlocal so that duraton can be decreased by 1
             duration -= 1
             new_action(colony)
     bee.action = make_bee_action
@@ -778,10 +765,41 @@ class StunThrower(ThrowerAnt):
         if target:
             apply_effect(make_stun, target, 1)
 
+#####################
+# NEW ANT TYPE
+#####################
+class AntDestroyer(Ant):
+    """ Remove all ants in all tunnels, except the QueenAnt"""
+    name = "Destroyer"
+    food_cost   = 10
+    implemented = True
+
+    def __init__(self):
+        Ant.__init__(self)
+
+    def action(self, colony):
+        def fn_adaptor(place):
+            run_fn_over_entire_tunnel(remove_ant, place)
+        
+        tunnel_entrances = find_tunnel_entrances(colony)
+        apply_to_all(fn_adaptor, tunnel_entrances)
+
+
+def remove_ant(this_place):
+    if this_place.ant is None or isinstance(this_place.ant, QueenAnt): 
+        return
+    
+    if this_place.ant.container and isinstance(this_place.ant.ant, QueenAnt):
+        this_place.ant = this_place.ant.ant
+    else:
+        this_place.ant = None
+
+def find_tunnel_entrances(colony):
+    return [p for name, p in colony.get_places().items() if p.entrance == colony.hive]
+
 
 @main
 def run(*args):
     start_with_strategy(args, interactive_strategy)
-
 
 

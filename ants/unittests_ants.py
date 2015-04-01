@@ -321,7 +321,7 @@ class phase_4(unittest.TestCase):
         
         queenant.action(colony)
         self.assertEqual(orig_damages[0], queenant.get_damage()) # QueenAnt should not double herself
-        self.assertEqual(orig_damages[4], bee.get_damage()) # bee should no double 
+        self.assertEqual(orig_damages[4], bee.get_damage()) # bee should not double 
         
         self.assertEqual(2*orig_damages[1], thrower.get_damage())
         self.assertEqual(2*orig_damages[2], ninja.get_damage())
@@ -385,7 +385,7 @@ class phase_4(unittest.TestCase):
 
 class extra_credit(unittest.TestCase):
     def test_destroyer(self):       
-        colony = create_colony()
+        colony = create_colony(layout = ants.dry_layout)
         body = [ ants.BodyguardAnt() for _ in range(2)] 
         thrower, queen = ants.ThrowerAnt(), ants.QueenAnt()
         harv     = ants.HarvesterAnt()
@@ -394,17 +394,18 @@ class extra_credit(unittest.TestCase):
 
         colony.places["tunnel_0_0"].add_insect(body[0])
         colony.places["tunnel_0_0"].add_insect(queen)
-        colony.places["tunnel_0_2"].add_insect(harv)
-        colony.places["tunnel_0_5"].add_insect(thrower)
-        colony.places["tunnel_0_5"].add_insect(body[1])
-        
+        colony.places["tunnel_1_2"].add_insect(harv)
+        colony.places["tunnel_2_5"].add_insect(thrower)
+        colony.places["tunnel_2_5"].add_insect(body[1])
         colony.places["tunnel_0_6"].add_insect(destroyer)
+        queen.action(colony)
         destroyer.action(colony)
         
         # Test if all ants are gone except the queen ant
-        find_ant = lambda place: place.ant
-        antlist = ants.run_fn_over_entire_tunnel(find_ant, colony.places["tunnel_0_0"])
-        self.assertEqual(set([None, queen]), set(antlist))
+        self.assertEqual(queen, colony.places["tunnel_0_0"].ant)
+        for tunnel in ["tunnel_1_2", "tunnel_2_5", "tunnel_0_6"]:
+            self.assertEqual(None,  colony.places[tunnel].ant)
+        
 
     def test_slow_stun_params(self):
         slow = ants.SlowThrower()
