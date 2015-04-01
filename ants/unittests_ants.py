@@ -302,34 +302,71 @@ class phase_4(unittest.TestCase):
         queenant.action(colony)
         self.assertTrue(len(colony.queen.bees) > 0, "Ants not lost yet") # this is the condtion in AntColony.simulate() to stop the game
 
-    def test_double_damage(self):  
+    def test_double_damage_same_tunnel(self):  
         ants.QueenAnt.ctr_QueenAnt = 0 # ensure queenant is first queen
         queenant = ants.QueenAnt()
         self.assertTrue(queenant.firstQueenAnt)
+
         thrower, ninja, body = ants.ThrowerAnt(), ants.NinjaAnt(), ants.BodyguardAnt()
-        orig_damages = [queenant.get_damage(), thrower.get_damage(), ninja.get_damage(), body.get_damage()]
+        bee = ants.Bee(armor=1)
+        orig_damages = [queenant.get_damage(), thrower.get_damage(), ninja.get_damage(), body.get_damage(),
+                        bee.get_damage() ]
         
         colony = create_colony()
-        colony.places["tunnel_0_5"].add_insect(thrower)
-        colony.places["tunnel_0_5"].add_insect(body)
-        colony.places["tunnel_0_1"].add_insect(ninja)
+        colony.places["tunnel_0_1"].add_insect(thrower)
+        colony.places["tunnel_0_1"].add_insect(body)
+        colony.places["tunnel_0_6"].add_insect(ninja)
         colony.places["tunnel_0_3"].add_insect(queenant)
+        colony.places["tunnel_0_7"].add_insect(bee)
         
         queenant.action(colony)
         self.assertEqual(orig_damages[0], queenant.get_damage()) # QueenAnt should not double herself
+        self.assertEqual(orig_damages[4], bee.get_damage()) # bee should no double 
+        
         self.assertEqual(2*orig_damages[1], thrower.get_damage())
         self.assertEqual(2*orig_damages[2], ninja.get_damage())
+        self.assertEqual(0, body.get_damage())
         
+        self.assertEqual(2, len(queenant.doubled_ants))
         for ant in queenant.doubled_ants: # Ensure doubled_ants list is correct
-            self.assertTrue(ant.get_name() in ["Thrower", "Ninja"])
-            self.assertFalse(ant.get_name() == "Bodyguard") # Bodyguard should not be in the list
-            self.assertFalse(ant.get_name() == "Queen")
+            self.assertTrue(ant in [thrower, ninja])
+
+            self.assertFalse(ant == body) # bodyguard and queen should not be in
+            self.assertFalse(ant == queenant)
         
         # Damage levels should not double again in the 2nd action()
+        fire = ants.FireAnt()
+        colony.places["tunnel_0_2"].add_insect(fire)
+        orig_fire_damage = fire.get_damage()
+
         queenant.action(colony)
+        self.assertEqual(2*orig_fire_damage, fire.get_damage()) 
         self.assertEqual(orig_damages[0], queenant.get_damage()) 
+        
         self.assertEqual(2*orig_damages[0], thrower.get_damage())
-        self.assertEqual(2*orig_damages[0], ninja.get_damage())
+        self.assertEqual(2*orig_damages[0], ninja.get_damage())   
+    
+    def test_double_damage_different_tunnel(self):  
+        ants.QueenAnt.ctr_QueenAnt = 0 # ensure queenant is first queen
+        queenant = ants.QueenAnt()
+        self.assertTrue(queenant.firstQueenAnt)
+
+        thrower, ninja, body = ants.ThrowerAnt(), ants.NinjaAnt(), ants.BodyguardAnt()
+        orig_damages = [queenant.get_damage(), thrower.get_damage(), ninja.get_damage(), body.get_damage() ]
+        
+        colony = create_colony(layout = ants.dry_layout)
+        colony.places["tunnel_1_5"].add_insect(thrower)
+        colony.places["tunnel_1_5"].add_insect(body)
+        colony.places["tunnel_1_6"].add_insect(ninja)
+        colony.places["tunnel_0_3"].add_insect(queenant)
+        
+        queenant.action(colony)
+        self.assertEqual(orig_damages[0], queenant.get_damage())
+        self.assertEqual(orig_damages[1], thrower.get_damage())
+        self.assertEqual(orig_damages[2], ninja.get_damage())
+        self.assertEqual(0, body.get_damage())
+        self.assertEqual([], queenant.doubled_ants)
+        
 
     def test_run_fn_over_entire_tunnel(self):    
         ants.QueenAnt.ctr_QueenAnt = 0 # ensure queenant is first queen
@@ -523,14 +560,14 @@ class extra_credit(unittest.TestCase):
 
 ##############################################################
 # Utility functions
-def create_colony():
+def create_colony(layout = ants.test_layout):
     assault_plan = ants.make_test_assault_plan()
     hive = ants.Hive(assault_plan)
     ant_types = [ants.HarvesterAnt, ants.ThrowerAnt, ants.FireAnt,   ants.ShortThrower, 
                  ants.LongThrower,  ants.WallAnt,    ants.NinjaAnt,  ants.ScubaThrower, 
                  ants.HungryAnt,    ants.BodyguardAnt, ants.QueenAnt,ants.SlowThrower, 
                  ants.StunThrower,  ants.AntDestroyer]
-    return ants.AntColony(None, hive, ant_types, ants.test_layout, 10)
+    return ants.AntColony(None, hive, ant_types, layout, 10)
 
 
 if __name__ == "__main__":

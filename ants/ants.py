@@ -97,6 +97,9 @@ class Insect:
 
     def get_name(self):
         return self.name
+    
+    def get_damage(self):
+        return self.damage
 
     def reduce_armor(self, amount):
         self.armor -= amount
@@ -118,6 +121,7 @@ class Bee(Insect):
     """A Bee moves from place to place, following exits and stinging ants."""
 
     name = 'Bee'
+    damage = 1
     watersafe = True
 
     def __init__(self, armor, place=None):
@@ -170,9 +174,6 @@ class Ant(Insect):
     
     def get_food_cost(self):
         return self.food_cost
-
-    def get_damage(self):
-        return self.damage
 
 class HarvesterAnt(Ant):
     """HarvesterAnt produces 1 additional food per turn for the colony."""
@@ -618,7 +619,6 @@ class QueenAnt(ScubaThrower):
         QueenAnt.ctr_QueenAnt += 1
         self.firstQueenAnt = (QueenAnt.ctr_QueenAnt == 1) # first queen or an Imposter
         
-        self.has_doubled_damage = False # track if QueenAnt has doubled damage of fellow ants
         self.doubled_ants = [] # track what ants have been doubled
 
 
@@ -635,26 +635,22 @@ class QueenAnt(ScubaThrower):
         ScubaThrower.action(self, colony) # 2. Throws a leaf
 
         # 3 double once and only once
-        if not self.has_doubled_damage:
-            run_fn_over_entire_tunnel(self.double_damage, self.place) # run double_damage in entire tunnel starting from self.place
-            self.has_doubled_damage = True
+        run_fn_over_entire_tunnel(self.double_damage, self.place) # run double_damage in entire tunnel starting from self.place
         
         # 4 Track both colony queen and QueenAnt; Trigger a game over if finding a bee
         colony.queen = QueenPlace(colony.queen, self.place)
 
 
     def double_damage(self, this_place):
-        """ If found a proper ant at this place, Double its damage """
+        """ Find a doubleable ant and check it against the list of doubled_ants"""
         this_ant = find_doubleable_ant(this_place)
-        if this_ant:
+        if this_ant and this_ant not in self.doubled_ants:
             this_ant.damage *= 2
-            assert this_ant not in self.doubled_ants, "{0} appears to be doubled twice".format(this_ant)
-            self.doubled_ants.append(this_ant) # maintain a list of doubled ants
-   
+            self.doubled_ants.append(this_ant)
+
 
 def run_fn_over_entire_tunnel(fn, curr_place):   
-    """Run the given function over the tunnel in both directions sequentially
-       It could have started from the left most and go one direction, but I implement it in a way that it starts from where the ant is at"""
+    # Run the given fn over the tunnel in both directions sequentially. This is the instruction's way. I could also start from the left most and go unidirectional
     this_place = curr_place
     output = []
     while this_place is not None:
@@ -666,7 +662,7 @@ def run_fn_over_entire_tunnel(fn, curr_place):
         output.append( fn(this_place))
         this_place = this_place.exit
     
-    return output    
+    return output
 
 
 def find_doubleable_ant(this_place):
