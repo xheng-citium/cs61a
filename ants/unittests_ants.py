@@ -308,21 +308,28 @@ class phase_4(unittest.TestCase):
         self.assertTrue(queenant.firstQueenAnt)
 
         thrower, ninja, body = ants.ThrowerAnt(), ants.NinjaAnt(), ants.BodyguardAnt()
-        bee = ants.Bee(armor=1)
-        orig_damages = [queenant.get_damage(), thrower.get_damage(), ninja.get_damage(), body.get_damage(),
-                        bee.get_damage() ]
+        bee = ants.Bee(armor=5)
+        orig_damages = [queenant.get_damage(), thrower.get_damage(), ninja.get_damage(), bee.get_damage() ]
         
         colony = create_colony()
         colony.places["tunnel_0_1"].add_insect(thrower)
         colony.places["tunnel_0_1"].add_insect(body)
         colony.places["tunnel_0_6"].add_insect(ninja)
         colony.places["tunnel_0_3"].add_insect(queenant)
-        colony.places["tunnel_0_7"].add_insect(bee)
         
+        # Should not double because queentant has no bee to throw at
+        queenant.action(colony)
+        self.assertEqual(orig_damages[0], queenant.get_damage()) 
+        self.assertEqual(orig_damages[3], bee.get_damage()) # bee should not double 
+        self.assertEqual(orig_damages[1], thrower.get_damage())
+        self.assertEqual(orig_damages[2], ninja.get_damage())
+        self.assertEqual(0, body.get_damage())
+        
+        # should double some ants, but no others
+        colony.places["tunnel_0_7"].add_insect(bee)
         queenant.action(colony)
         self.assertEqual(orig_damages[0], queenant.get_damage()) # QueenAnt should not double herself
-        self.assertEqual(orig_damages[4], bee.get_damage()) # bee should not double 
-        
+        self.assertEqual(orig_damages[3], bee.get_damage()) # bee should not double 
         self.assertEqual(2*orig_damages[1], thrower.get_damage())
         self.assertEqual(2*orig_damages[2], ninja.get_damage())
         self.assertEqual(0, body.get_damage())
@@ -334,23 +341,26 @@ class phase_4(unittest.TestCase):
             self.assertFalse(ant == body) # bodyguard and queen should not be in
             self.assertFalse(ant == queenant)
         
-        # Damage levels should not double again in the 2nd action()
+        # a FireAnt is newly added and should be doubled 
+        # Other ants should not be
         fire = ants.FireAnt()
         colony.places["tunnel_0_2"].add_insect(fire)
         orig_fire_damage = fire.get_damage()
 
         queenant.action(colony)
         self.assertEqual(2*orig_fire_damage, fire.get_damage()) 
-        self.assertEqual(orig_damages[0], queenant.get_damage()) 
-        
+
+        self.assertEqual(orig_damages[0], queenant.get_damage())
         self.assertEqual(2*orig_damages[0], thrower.get_damage())
-        self.assertEqual(2*orig_damages[0], ninja.get_damage())   
+        self.assertEqual(2*orig_damages[0], ninja.get_damage()) 
+
     
     def test_double_damage_different_tunnel(self):  
         ants.QueenAnt.ctr_QueenAnt = 0 # ensure queenant is first queen
         queenant = ants.QueenAnt()
         self.assertTrue(queenant.firstQueenAnt)
-
+        
+        bee = ants.Bee(armor=2)
         thrower, ninja, body = ants.ThrowerAnt(), ants.NinjaAnt(), ants.BodyguardAnt()
         orig_damages = [queenant.get_damage(), thrower.get_damage(), ninja.get_damage(), body.get_damage() ]
         
@@ -359,6 +369,7 @@ class phase_4(unittest.TestCase):
         colony.places["tunnel_1_5"].add_insect(body)
         colony.places["tunnel_1_6"].add_insect(ninja)
         colony.places["tunnel_0_3"].add_insect(queenant)
+        colony.places["tunnel_0_2"].add_insect(bee)
         
         queenant.action(colony)
         self.assertEqual(orig_damages[0], queenant.get_damage())
@@ -415,7 +426,7 @@ class extra_credit(unittest.TestCase):
         self.assertEqual(1, slow.get_armor(), "SlowThrower has wrong armor")
         self.assertEqual(1, stun.get_armor())
 
-    def test_make_slow_make_stun(self):
+    def test_make_slow(self):
         slow   = ants.SlowThrower()
         bee    = ants.Bee(armor=1)
         colony = create_colony()
@@ -429,23 +440,22 @@ class extra_credit(unittest.TestCase):
         colony.inc_time()
         self.assertEqual(None, ants.make_slow(bee.action)(colony)) # do bee.action(colony)
         self.assertEqual(0, slow.get_armor()) # subsequently kills the colocated SlowThrower
-        
-        # Test make_stun
+    
+    def test_make_stun(self):
         stun = ants.StunThrower()
         bee  = ants.Bee(armor=1)
-        self.assertEqual(None, ants.make_stun(bee.action)(colony)) 
-
         colony = create_colony()
         colony.places["tunnel_0_0"].add_insect(stun)
         colony.places["tunnel_0_3"].add_insect(bee)
-
+        
+        self.assertEqual(None, ants.make_stun(bee.action)(colony)) 
         stun.action(colony)
         bee.action(colony)
         self.assertEqual("tunnel_0_3", bee.place.name) # bee does not move
         bee.action(colony)
         self.assertEqual("tunnel_0_2", bee.place.name) # bee moves
 
-    def test_apply_effect(self): 
+    def test_apply_effect_params(self): 
         slow = ants.SlowThrower()
         bee = ants.Bee(armor=1)
         self.assertRaises(AssertionError, ants.apply_effect, "ants.make_slow", bee, 3)
@@ -494,14 +504,15 @@ class extra_credit(unittest.TestCase):
                 self.assertEqual(prev_loc-1, int(bee.place.get_name()[-1]))
 
     def test_multiple_stun(self):
+        """This is a translation of the autograder: tests/qEC.py """
         stun = ants.StunThrower()
-        bee = ants.Bee(1)
+        bee = ants.Bee(armor=1)
         colony = create_colony()
         colony.places["tunnel_0_0"].add_insect(stun)
         colony.places["tunnel_0_4"].add_insect(bee)
         
-        # If bee is stunned for 3 times, it will not move for 3 times
-        num = 3
+        # If bee is stunned for num times, it will not move for num times
+        num = 4
         for _ in range(num): 
             stun.action(colony)
 
@@ -520,7 +531,7 @@ class extra_credit(unittest.TestCase):
         colony.places["tunnel_0_1"].add_insect(slow)
         colony.places["tunnel_0_4"].add_insect(bee)
         
-        # slow bee 3 times and stun it once
+        # slow bee 3 times and stun once
         for _ in range(3):
             slow.action(colony)
         stun.action(colony) 

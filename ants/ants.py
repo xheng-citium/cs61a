@@ -12,6 +12,18 @@ import copy, pdb
 def apply_to_all(map_fn, seq):
     return [map_fn(s) for s in seq]
 
+def trace(f):
+    f.indent = 0
+    def g(*args):
+        print( '|  ' * f.indent + '|--', f.__name__, *args)
+        f.indent += 1
+        value = f(*args)
+        print('|  ' * f.indent + '|--', 'return:', repr(value))
+        f.indent -= 1
+        return value
+    return g
+
+
 ################
 # Core Classes #
 ################
@@ -634,21 +646,24 @@ class QueenAnt(ScubaThrower):
     def action(self, colony):
         """A queen ant throws a leaf, but also doubles the damage of ants in her tunnel.
         Impostor queens do only one thing: reduce their own armor to 0.
-        Four steps: 1: self-kill if is an imposter queen
-                    2: throw a leaf
-                    3: double damanges of fellow ants only once
-                    4: record locations of colony queen and QueenAnt -> needed by an early game over """
+        Four steps: 1 self-kill if is an imposter
+                2 record locations of colony queen and QueenAnt -> needed by an early game over
+                3 attempt to throw a leaf -> will do nothing if no bee to throw at
+                4 double damanges of fellow ants only once """
+
         if not self.firstQueenAnt: 
             self.reduce_armor(self.armor) # 1. self kill if imposter queen
             return
         
-        ScubaThrower.action(self, colony) # 2. Throws a leaf
-
-        # 3 double damage of fellow ant
-        run_fn_over_entire_tunnel(self.double_damage, self.place)
-        
-        # 4 Track both places for colony queen and QueenAnt -> trigger a game over if finding a bee
+        # 2 Track both places for colony queen and QueenAnt -> game over if finding a bee
         colony.queen = QueenPlace(colony.queen, self.place)
+        
+        # 3 Attempt to throw a leaf
+        ScubaThrower.action(self, colony) 
+
+        # 4 double damage of fellow ant
+        if ThrowerAnt.nearest_bee(self, colony.hive):
+            run_fn_over_entire_tunnel(self.double_damage, self.place)
         return
 
     def double_damage(self, this_place):
@@ -660,7 +675,7 @@ class QueenAnt(ScubaThrower):
 
 
 def run_fn_over_entire_tunnel(fn, curr_place):   
-    # Run the given fn over the tunnel in both directions sequentially. This is the instruction's way. I could also start from the left most and go unidirectional
+    # Run the given fn over the tunnel in both directions sequentially. This is the instruction's way. NB: Another way is to start from the left most and go unidirectional
     this_place = curr_place
     output = []
     while this_place is not None:
@@ -732,15 +747,20 @@ def apply_effect(effect, bee, duration):
     orig_action = bee.action
     new_action  = effect(bee.action)
     
+    #@trace
     def make_bee_action(colony):
         nonlocal duration # make it nonlocal so that duraton can be decreased by 1
+        print("Bee name: %s, duration: %d" %(str(bee), duration) )
+        
         if duration <= 0:
             bee.action = orig_action
             bee.action(colony)
         else:
             duration -= 1
             new_action(colony)
+
     bee.action = make_bee_action
+
 
 
 class SlowThrower(ThrowerAnt):
@@ -768,8 +788,9 @@ class StunThrower(ThrowerAnt):
 #####################
 # NEW ANT TYPE
 #####################
+
 class AntDestroyer(Ant):
-    """ Remove all ants in all tunnels, except the QueenAnt"""
+    """ Remove all ants in all tunnels except the QueenAnt! """
     name = "Destroyer"
     food_cost   = 10
     implemented = True
@@ -795,7 +816,7 @@ def remove_ant(this_place):
         this_place.ant = None
 
 def find_tunnel_entrances(colony):
-    return [p for name, p in colony.get_places().items() if p.entrance == colony.hive]
+    return [p for p in colony.get_places().values() if p.entrance == colony.hive]
 
 
 @main
