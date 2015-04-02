@@ -10,6 +10,166 @@
 ;;; *** Add more of your own here! ***
 ;;; **********************************
 
+; Added by xin heng
+
+; this is a bug in scheme_oddp
+(odd? 0.1) ; expect False
+
+(odd? 2.0) ; expect False
+
+(define tau ( * 2 3.1415926)) ; expect tau
+tau ; expect 6.2831852
+
+'foo ; expect foo
+
+'(1 . 4) ; expect (1 . 4)
+
+'(1 (2 three . (4 . 5))) ; expect (1 (2 three 4 . 5))
+
+(car '(a b)) ; expect a
+
+(eval (cons 'car '('(1 2)))) ; expect 1
+
+(begin (+ 2 3) (+ 5 6)) ; expect 11
+
+(define x (begin (display 3) (newline) (+ 2 3)))
+; expect 3
+; ... x
+
+(+ x 3) ; expect 8
+
+(begin (print 3) '(+ 2 3))
+; expect 3
+; ... (+ 2 3)
+
+(begin 30 'hello) ; expect hello
+
+(lambda (x y) (+ x y)) ; expect (lambda (x y) (+ x y))
+
+(lambda (y) (print y) (* y 2)) ; expect (lambda (y) (begin (print y) (* y 2)))
+
+(define f (lambda (x) (* x 2))) ; expect f
+
+; Problem 9
+(define (f x) (* x 2)) ; expect f
+
+(define (square x) (* x x)) ; expect square
+
+square ; expect (lambda (x) (* x x))
+
+; Problem 13A
+(if (= 4 2) #t #f) ; expect False
+
+(if (= 4 4) (* 1 2) (+ 3 4)) ; expect 2
+
+(if (= 4 2) #t) ; expect okay
+
+; Problem 14B
+(and) ; expect True
+
+(and #t #t (= 4 5)) ; expect False
+
+(and #t #f 42 (/ 1 0))  ; expect False
+
+(and 4 5 6)  ; expect 6
+
+(or) ; expect False
+
+(or 5 2 1)  ; expect 5
+
+(or 4 #t (/ 1 0))  ; expect 4
+
+(or #f #f (> 2 3)) ; expect False  
+
+(or 'a #f) ; expect 'a'
+
+(or (< 2 3) (> 2 3) 2 'a) ; expect True
+
+(or #f (> 2 3) (= 2 2)) ; expect True
+
+; Problem 15A
+(cond ((= 4 3) 'nope)
+      ((= 4 4) 'hi)
+      (else 'wait)) ; expect hi
+
+(cond ((= 4 3) 'wat)
+      ((= 4 4))
+      (else 'hm)) ; expect True
+
+(cond ((= 4 4) 'here 42)
+      (else 'wat 0)) ; expect 42
+
+(cond (12)) ; expect 12
+
+(cond ((= 4 3))
+      ('hi)) ; expect hi
+
+(cond (#f 1)) ; expect okay
+
+(cond ((> 2 3) 4 5)
+      ((> 2 4) 5 6)
+      ((< 2 5) 6 7)
+      (else 7 8)) ; expect 7
+
+(cond ((> 2 3) (display 'oops) (newline))
+      (else 9)) ; expect 9
+
+; Problem 16
+
+(define x 'hi) ; expect x
+(define y 'bye) ; expect y
+(let ((x 42) (y (* 5 10)))
+     (list x y)) ; expect (42 50)
+(list x y) ; expect (hi bye)
+
+(let ((x 42)) x 1 2) ; expect 2
+
+(let ((x 5))
+     (let ((x 2)
+          (y x))
+          (+ y (* x 2)))
+     ) ; expect 6
+
+(let ((x 2) (y 3))
+ (* x y)) ; expect 6
+
+(let ((x 1)
+      (y 3))
+      (define x (+ x 1))
+      (cons x y) ) ; expect Pair(2, 3)
+
+(let ((x 2) (y 3))
+ (let ((x 6)
+       (foo (lambda (z) (+ x y z)))
+       (x 7))
+  (foo 4) ) ) ; expect 9, b/c x is 2
+
+(let ((a 200))
+ (let ((a 1) (b a)) 
+  b)) ; expect 200, and the next case should fail
+(let ((a 1) (b a)) b) ; expect SchemeError, see the prev case
+
+(let ((a 1 1)) a)   ; expect SchemeError
+(let ((a 1) (b)) a) ; expect SchemeError
+(let ((a 1) (2 2)) a); expect SchemeError
+(let ((a 1) (b 2)) c); expect SchemeError
+
+(exit)
+
+
+; Problem 17
+(define f (mu (x) (+ x y))) ; expect f
+(define g (lambda (x y) (f (+ x x)))) ; expect g
+(g 3 7) ; expect 13
+
+;(define f (lambda (x) (+ x y))) ; expect f
+;(define g (lambda (x y) (f (+ x x)))) ; expect g
+;(g 3 7) ; expect 13
+
+; (mu (x) (display x) (+ x 1)) 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 ;;; These are examples from several sections of "The Structure
 ;;; and Interpretation of Computer Programs" by Abelson and Sussman.
 
@@ -53,13 +213,6 @@
    (+ (- 10 7)
       6))
 ; expect 57
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Move the following (exit) line to run additional tests. ;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(exit)
-
 
 ;;; 1.1.2
 
@@ -127,6 +280,7 @@ circumference
 (a-plus-abs-b 3 -2)
 ; expect 5
 
+
 ;;; 1.1.7
 
 (define (sqrt-iter guess x)
@@ -179,6 +333,7 @@ circumference
 ; expect 1000.000369924366
 
 ;;; 1.3.1
+
 
 (define (cube x) (* x x x))
 (define (sum term a next b)
@@ -512,14 +667,12 @@ one-through-four
 (and False (/ 1 0))
 ; expect False
 
-(and True (/ 1 0))
-; expect Error
+(and True (/ 1 0)) ; expect Error
 
 (or 3 (/ 1 0))
 ; expect 3
 
-(or False (/ 1 0))
-; expect Error
+(or False (/ 1 0)) ; expect Error
 
 (or (quote hello) (quote world))
 ; expect hello
@@ -554,8 +707,7 @@ one-through-four
 (print-and-square 12)
 ; expect 12 ; 144
 
-(/ 1 0)
-; expect Error
+(/ 1 0) ; expect Error
 
 (define addx (mu (x) (+ x y)))
 (define add2xy (lambda (x y) (addx (+ x x))))
@@ -574,6 +726,13 @@ one-through-four
     (+ 1 (len (cdr s)))))
 (len '(1 2 3 4))
 ; expect 4
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Move the following (exit) line to run additional tests. ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(exit)
+
 
 
 ;;;;;;;;;;;;;;;;;;;;

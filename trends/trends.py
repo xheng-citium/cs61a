@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+usr/bin/python3
 
 """Visualizing Twitter Sentiment Across America"""
 from scipy.spatial import KDTree
@@ -200,6 +200,11 @@ def analyze_tweet_sentiment(tweet):
     False
     """
     sentList = [get_word_sentiment(w) for w in tweet_words(tweet) ] #sentiment list
+    scores = [sentiment_value(s) for s in sentList  if has_sentiment(s) ]
+    return make_sentiment(sum(scores) /len(scores)) if len(scores) > 0 else make_sentiment(None)
+    
+    """
+    sentList = [get_word_sentiment(w) for w in tweet_words(tweet) ] #sentiment list
     sent_ctr = 0 # sentimental word counter
     for s in sentList:
         if has_sentiment(s):
@@ -207,6 +212,7 @@ def analyze_tweet_sentiment(tweet):
             if sent_ctr == 1: sentiment_score = sentiment_value(s)
             else: sentiment_score += sentiment_value(s)
     return make_sentiment(sentiment_score / sent_ctr) if sent_ctr > 0 else make_sentiment(None)
+    """
 
 #################################
 # Phase 2: The Geometry of Maps #
@@ -287,7 +293,15 @@ def find_state_center(polygons):
         total_Cx   += Cx * area
         total_Cy   += Cy * area
         total_area += area
-    return make_position( total_Cx/total_area, total_Cy/total_area) # weighted averages
+    return make_position( total_Cx/total_area, total_Cy/total_area) # weighted averages    
+    
+    """ 
+    result = [find_centroid(poly) for poly in polygons]
+    total_Cx   = sum([r[0]*r[2] for r in result ])
+    total_Cy   = sum([r[1]*r[2] for r in result ])
+    total_area = sum([r[2] for r in result ])
+    """
+
 
 ###################################
 # Phase 3: The Mood of the Nation #
@@ -350,6 +364,11 @@ def group_tweets_by_state(tweets):
 
 def find_state_by_center(tweet, state_centers):
     pos = tweet_location(tweet)
+    distances = { geo_distance(pos, state_centers[name]) : name for name in us_states}
+    return distances[ min(distances.keys())] # a bit dangerous to use a floating number as key but it works
+    
+    """
+    pos = tweet_location(tweet)
     min_distance, min_state = None, None # Track this tweet has min distance to which state center 
     for state_name in us_states:
         thisDistance = geo_distance(pos, state_centers[state_name])
@@ -357,6 +376,7 @@ def find_state_by_center(tweet, state_centers):
             min_distance = thisDistance
             min_state = state_name
     return min_state
+    """
 
 ##########################################
 # Implement find_contain_state(), i.e. find_state_by_borders()
@@ -443,7 +463,7 @@ def average_sentiments(tweets_by_state):
                 total_score += sentiment_value(sent)
         if counter > 0:
             sent_dict[state_name] = total_score / counter 
-    return sent_dict
+    return sent_dict    
 
 
 ##############################
@@ -559,9 +579,9 @@ def draw_map_of_selected_tweets(tweets):
             draw_dot(tweet_location(tweet), sentiment_value(s))
             total.append(sentiment_value(s))
     if len(total) > 0:
-        print ("National average of all selected tweets: %.8f" %(sum(total)/len(total)) )
+        print("National average of all selected tweets: %.8f" %(sum(total)/len(total)) )
     else:
-        print ("Selected tweets are not in US territory")
+        print("Selected tweets are not in US territory")
     wait()
 
 def load_filter_tweets(term, file_name, filter_fn, *args):
@@ -592,6 +612,25 @@ def swap_tweet_representation(other=[make_tweet_fn, tweet_text_fn,
     swap_to = tuple(other)
     other[:] = [make_tweet, tweet_text, tweet_time, tweet_location]
     make_tweet, tweet_text, tweet_time, tweet_location = swap_to
+
+###################################
+# Use slide_shape for animation
+###################################
+def slide_map_for_query(term="my job", filename="tweets2014.txt"):
+    tweets = load_filter_tweets( term, file_name, filter_fn=None)
+    tweets_by_state = group_tweets_by_state(tweets)
+    state_sentiments = average_sentiments(tweets_by_state)
+    draw_state_sentiments(state_sentiments)
+    total = []
+    for tweet in tweets:
+        if constants.find_state_by == "by_stateborders" and find_state_by_borders(tweet) is None: # if Not in US territory
+            continue
+
+        s = analyze_tweet_sentiment(tweet)
+        if has_sentiment(s):
+            draw_dot(tweet_location(tweet), sentiment_value(s))
+            total.append(sentiment_value(s))
+
 
 @main
 def run(*args):

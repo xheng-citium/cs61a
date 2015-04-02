@@ -131,10 +131,11 @@ def scheme_read(src):
     val = src.pop()
     if val == "nil":
         return nil
-    elif val not in DELIMITERS:
+    elif val not in DELIMITERS: # ( ) '
         return val
     elif val == "'":
         "*** YOUR CODE HERE ***"
+        return Pair("quote", Pair(scheme_read(src), nil)) # src has been popped, so ' is not in src
     elif val == "(":
         return read_tail(src)
     else:
@@ -168,6 +169,11 @@ def read_tail(src):
             return nil
         elif src.current() == ".":
             "*** YOUR CODE HERE ***"
+            src.pop() # skip "."
+            result = scheme_read(src)
+            if src.pop() != ')': # check to see if ) follows
+                raise SyntaxError("Expected one element after .") # error mesg per doc test
+            return result
         else:
             first = scheme_read(src)
             rest = read_tail(src)

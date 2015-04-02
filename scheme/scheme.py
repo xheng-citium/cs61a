@@ -1,7 +1,7 @@
 """This module implements the core Scheme interpreter functions, including the
 eval/apply mutual recurrence, environment model, and read-eval-print loop.
 """
-
+import copy, pdb
 from scheme_primitives import *
 from scheme_reader import *
 from ucb import main, trace
@@ -58,10 +58,17 @@ def scheme_apply(procedure, args, env):
     """Apply Scheme PROCEDURE to argument values ARGS in environment ENV."""
     if isinstance(procedure, PrimitiveProcedure):
         return apply_primitive(procedure, args, env)
+
     elif isinstance(procedure, LambdaProcedure):
         "*** YOUR CODE HERE ***"
+        frame = procedure.env.make_call_frame(procedure.formals, args)
+        return scheme_eval(procedure.body, frame)
+    
     elif isinstance(procedure, MuProcedure):
         "*** YOUR CODE HERE ***"
+        frame = env.make_call_frame(procedure.formals, args)
+        return scheme_eval(procedure.body, frame) # evaluated inside parent frame
+
     else:
         raise SchemeError("Cannot call {0}".format(str(procedure)))
 
@@ -75,6 +82,12 @@ def apply_primitive(procedure, args, env):
     4
     """
     "*** YOUR CODE HERE ***"
+    py_args = [ args[i] for i in range(len(args))] # scheme list -> py list, see __getitem__() of Pair
+    if procedure.use_env: py_args.append(env)
+    try: 
+        return procedure.fn(*py_args)
+    except TypeError:
+        raise SchemeError("Failed call of the function: %s" % procedure.fn.__name__)
 
 ################
 # Environments #
@@ -98,6 +111,10 @@ class Frame:
     def lookup(self, symbol):
         """Return the value bound to SYMBOL.  Errors if SYMBOL is not found."""
         "*** YOUR CODE HERE ***"
+        if symbol in self.bindings: 
+            return self.bindings[symbol]
+        elif self.parent is not None:
+            return self.parent.lookup(symbol)
         raise SchemeError("unknown identifier: {0}".format(str(symbol)))
 
 
@@ -119,8 +136,11 @@ class Frame:
         >>> env.make_call_frame(formals, vals)
         <{a: 1, b: 2, c: 3} -> <Global Frame>>
         """
-        frame = Frame(self)
+        frame = Frame(self) # self is parent of frame
         "*** YOUR CODE HERE ***"
+        if len(formals) != len(vals): raise SchemeError("formals and vals have different lengths")
+        for sym, v in zip(formals, vals):
+            frame.define(sym, v)
         return frame
 
     def define(self, sym, val):
@@ -182,33 +202,59 @@ class MuProcedure:
 def do_lambda_form(vals, env):
     """Evaluate a lambda form with parameters VALS in environment ENV."""
     check_form(vals, 2)
-    formals = vals[0]
-    check_formals(formals)
+    formals = vals[0] 
+    check_formals(formals) # check formals is valid agrument list
     "*** YOUR CODE HERE ***"
-
+    body = prep_body(vals)
+    return LambdaProcedure(formals, body, env)
+    
 def do_mu_form(vals):
     """Evaluate a mu form with parameters VALS."""
     check_form(vals, 2)
     formals = vals[0]
     check_formals(formals)
     "*** YOUR CODE HERE ***"
+    body = prep_body(vals)
+    return MuProcedure(formals, body) # env is not needed anymore
+
+def prep_body(values):
+    rest = values.second
+    if len(rest) == 1: 
+        body = rest.first
+    else:
+        body = Pair("begin", rest)
+    return body
+################################
 
 def do_define_form(vals, env):
-    """Evaluate a define form with parameters VALS in environment ENV."""
+    """Evaluate a define form with parameters VALS in environment ENV.
+    vals is a Pair object """
     check_form(vals, 2)
     target = vals[0]
-    if scheme_symbolp(target):
-        check_form(vals, 2, 2)
+    if scheme_symbolp(target): # If target a string
+        check_form(vals, 2, 2) # vals has two items
         "*** YOUR CODE HERE ***"
-    elif isinstance(target, Pair):
+        expr = scheme_eval(vals[1], env)
+
+    elif isinstance(target, Pair): # if targe is a list
         "*** YOUR CODE HERE ***"
+        # Use lambda expr to convert "define (fn x y)" to fn lambda (x y) ...
+        # Goal is to form an argument list that can be passed to do_lambda_form
+        target, formals = target.first, target.second
+        arg_list = Pair(formals, vals.second)
+        expr = do_lambda_form(arg_list, env)
     else:
         raise SchemeError("bad argument to define")
+    
+    env.define(target, expr) # bind fn name and related expression
+    return target
 
 def do_quote_form(vals):
-    """Evaluate a quote form with parameters VALS."""
+    """Evaluate a quote form with parameters VALS.
+    vals is a Pairs object"""
     check_form(vals, 1, 1)
     "*** YOUR CODE HERE ***"
+    return vals.first
 
 
 def do_let_form(vals, env):
@@ -222,12 +268,19 @@ def do_let_form(vals, env):
     # Add a frame containing bindings
     names, values = nil, nil
     "*** YOUR CODE HERE ***"
+    # Per make_call_frame(), we need to make a list of names and a list of values
+    for pair in bindings:
+        check_form(pair, 2, 2) # pair must have length 2 and be a valid expression
+        if not scheme_symbolp(pair.first): 
+            raise SchemeError("{0} is not a valid symbol".format(str(pair.first)))
+        names = Pair(pair.first, names)
+        values = Pair(scheme_eval(pair[1], env), values)
     new_env = env.make_call_frame(names, values)
 
     # Evaluate all but the last expression after bindings, and return the last
     last = len(exprs)-1
     for i in range(0, last):
-        scheme_eval(exprs[i], new_env)
+        scheme_eval(exprs[i], new_env) # evaluate in this new (local) environment
     return exprs[last], new_env
 
 
@@ -239,10 +292,25 @@ def do_if_form(vals, env):
     """Evaluate if form with parameters VALS in environment ENV."""
     check_form(vals, 2, 3)
     "*** YOUR CODE HERE ***"
+    predicate = scheme_eval(vals[0], env)
+    if scheme_true(predicate): 
+        return vals[1]
+    if len(vals) == 3:
+        return vals[2]
+    return okay 
 
 def do_and_form(vals, env):
     """Evaluate short-circuited and with parameters VALS in environment ENV."""
     "*** YOUR CODE HERE ***"
+    if vals == nil: 
+        return True
+    for i, v in enumerate(vals):
+        result = scheme_eval(v, env)
+        if i < len(vals) - 1: 
+            if scheme_false(result): return False
+        else: # last element
+            return v # return last sub-expression regardless of True or False  
+            # return result  
 
 def quote(value):
     """Return a Scheme expression quoting the Scheme VALUE.
@@ -258,6 +326,14 @@ def quote(value):
 def do_or_form(vals, env):
     """Evaluate short-circuited or with parameters VALS in environment ENV."""
     "*** YOUR CODE HERE ***"
+    if vals == nil: return False
+
+    for i, v in enumerate(vals):
+        result = scheme_eval(v, env)
+        if i < len(vals) - 1:
+            if scheme_true(result): return quote(result)
+        else: 
+            return v
 
 def do_cond_form(vals, env):
     """Evaluate cond form with parameters VALS in environment ENV."""
@@ -274,12 +350,24 @@ def do_cond_form(vals, env):
             test = scheme_eval(clause.first, env)
         if scheme_true(test):
             "*** YOUR CODE HERE ***"
+            if clause.second == nil: # body of cond case is empty
+                return quote(test)
+            else:
+                return do_begin_form(clause.second, env)
     return okay
 
 def do_begin_form(vals, env):
     """Evaluate begin form with parameters VALS in environment ENV."""
     check_form(vals, 1)
     "*** YOUR CODE HERE ***"
+    i, N = 0, len(vals) 
+    while i < N:
+        if i < N-1:
+            scheme_eval(vals[i], env)
+        else:
+            return vals[i] # Per instruction, returned value will be auto called by scheme_eval()
+        i += 1
+    
 
 LOGIC_FORMS = {
         "and": do_and_form,
@@ -311,6 +399,22 @@ def check_formals(formals):
     >>> check_formals(read_line("(a b c)"))
     """
     "*** YOUR CODE HERE ***"
+    # formals is immutable, so it will not be pass by reference
+    uniq_symbols = []
+    while formals is not nil:
+        if type(formals) != Pair : 
+            raise SchemeError( "formals is not a well formed list")
+        
+        sym = formals.first
+        if sym in uniq_symbols:
+            raise SchemeError( str(sym) + " appears more than once")
+        uniq_symbols.append(sym)
+        
+        if not scheme_symbolp(sym):
+            raise SchemeError( str(sym) + " is not a valid symbol")
+
+        formals = formals.second # go to the next pair
+
 
 ##################
 # Tail Recursion #

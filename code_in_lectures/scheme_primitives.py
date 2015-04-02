@@ -252,7 +252,6 @@ def scheme_evenp(x):
 
 @primitive("odd?")
 def scheme_oddp(x):
-    # TODO: should also assert x is integer
     _check_nums(x)
     return x % 2 == 1
 

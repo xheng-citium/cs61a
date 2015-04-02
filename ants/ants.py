@@ -6,6 +6,24 @@ from ucb import main, interact, trace
 from collections import OrderedDict
 import copy, pdb
 
+#########################
+# Util functions
+#########################
+def apply_to_all(map_fn, seq):
+    return [map_fn(s) for s in seq]
+
+def trace(f):
+    f.indent = 0
+    def g(*args):
+        print( '|  ' * f.indent + '|--', f.__name__, *args)
+        f.indent += 1
+        value = f(*args)
+        print('|  ' * f.indent + '|--', 'return:', repr(value))
+        f.indent -= 1
+        return value
+    return g
+
+
 ################
 # Core Classes #
 ################
@@ -97,6 +115,9 @@ class Insect:
 
     def get_name(self):
         return self.name
+    
+    def get_damage(self):
+        return self.damage
 
     def reduce_armor(self, amount):
         self.armor -= amount
@@ -118,6 +139,7 @@ class Bee(Insect):
     """A Bee moves from place to place, following exits and stinging ants."""
 
     name = 'Bee'
+    damage = 1
     watersafe = True
 
     def __init__(self, armor, place=None):
@@ -170,9 +192,6 @@ class Ant(Insect):
     
     def get_food_cost(self):
         return self.food_cost
-
-    def get_damage(self):
-        return self.damage
 
 class HarvesterAnt(Ant):
     """HarvesterAnt produces 1 additional food per turn for the colony."""
@@ -281,6 +300,9 @@ class AntColony:
 
     def get_time(self):
         return self.time
+
+    def get_places(self):
+        return self.places
 
     def inc_time(self, v=1):
         self.time += v
@@ -618,43 +640,42 @@ class QueenAnt(ScubaThrower):
         QueenAnt.ctr_QueenAnt += 1
         self.firstQueenAnt = (QueenAnt.ctr_QueenAnt == 1) # first queen or an Imposter
         
-        self.has_doubled_damage = False # track if QueenAnt has doubled damage of fellow ants
         self.doubled_ants = [] # track what ants have been doubled
 
 
     def action(self, colony):
         """A queen ant throws a leaf, but also doubles the damage of ants in her tunnel.
         Impostor queens do only one thing: reduce their own armor to 0.
-        Four steps: 1: self-kill if is an imposter queen
-                    2: throw a leaf
-                    3: double damanges of fellow ants only once
-                    4: record locations of colony queen and QueenAnt -> needed by an early game over """
+        Four steps: 1 self-kill if is an imposter
+                2 record locations of colony queen and QueenAnt -> needed by an early game over
+                3 attempt to throw a leaf -> will do nothing if no bee to throw at
+                4 double damanges of fellow ants only once """
+
         if not self.firstQueenAnt: 
             self.reduce_armor(self.armor) # 1. self kill if imposter queen
             return
-        ScubaThrower.action(self, colony) # 2. Throws a leaf
-
-        # 3 double once and only once
-        if not self.has_doubled_damage:
-            run_fn_over_entire_tunnel(self.double_damage, self.place) # run double_damage in entire tunnel starting from self.place
-            self.has_doubled_damage = True
         
-        # 4 Track both colony queen and QueenAnt; Trigger a game over if finding a bee
+        # 2 Track both places for colony queen and QueenAnt -> game over if finding a bee
         colony.queen = QueenPlace(colony.queen, self.place)
+        
+        # 3 Attempt to throw a leaf
+        ScubaThrower.action(self, colony) 
 
+        # 4 double damage of fellow ant
+        if ThrowerAnt.nearest_bee(self, colony.hive):
+            run_fn_over_entire_tunnel(self.double_damage, self.place)
+        return
 
     def double_damage(self, this_place):
-        """ If found a proper ant at this place, Double its damage """
+        """ Find a doubleable ant and check it against the list of doubled_ants"""
         this_ant = find_doubleable_ant(this_place)
-        if this_ant:
+        if this_ant and this_ant not in self.doubled_ants:
             this_ant.damage *= 2
-            assert this_ant not in self.doubled_ants, "{0} appears to be doubled twice".format(this_ant)
-            self.doubled_ants.append(this_ant) # maintain a list of doubled ants
-   
+            self.doubled_ants.append(this_ant)
+
 
 def run_fn_over_entire_tunnel(fn, curr_place):   
-    """Run the given function over the tunnel in both directions sequentially
-       It could have started from the left most and go one direction, but I implement it in a way that it starts from where the ant is at"""
+    # Run the given fn over the tunnel in both directions sequentially. This is the instruction's way. NB: Another way is to start from the left most and go unidirectional
     this_place = curr_place
     output = []
     while this_place is not None:
@@ -666,19 +687,19 @@ def run_fn_over_entire_tunnel(fn, curr_place):
         output.append( fn(this_place))
         this_place = this_place.exit
     
-    return output    
+    return output
 
 
 def find_doubleable_ant(this_place):
     if this_place.ant is None or isinstance(this_place.ant, QueenAnt): 
-        return # do nothing if empty or QueenAnt herself
+        return # do nothing
 
-    # this_ant = the selected ant that will be doubled
+    # this_ant = the selected ant to be doubled
     if this_place.ant.container:
         if this_place.ant.ant and (not isinstance(this_place.ant.ant, QueenAnt)):
             this_ant = this_place.ant.ant
         else:
-            this_ant = None # A empty container
+            this_ant = None
     else:
         this_ant = this_place.ant
     return this_ant
@@ -691,28 +712,6 @@ class AntRemover(Ant):
 
     def __init__(self):
         Ant.__init__(self, 0)
-
-# NEW ANT TYPE
-class AntDestroyer(Ant):
-    """ Remove all ants, except it is a QueenAnt"""
-    name = "Destroyer"
-    food_cost   = 10
-    implemented = True
-
-    def __init__(self):
-        Ant.__init__(self)
-
-    def action(self, colony):
-        run_fn_over_entire_tunnel(remove_ant, self.place)
-
-def remove_ant(this_place):
-    if this_place.ant is None or isinstance(this_place.ant, QueenAnt): 
-        return
-
-    if this_place.ant.container and isinstance(this_place.ant.ant, QueenAnt):
-        this_place.ant = this_place.ant.ant
-    else:
-        this_place.ant = None
 
 
 ##################
@@ -748,16 +747,20 @@ def apply_effect(effect, bee, duration):
     orig_action = bee.action
     new_action  = effect(bee.action)
     
+    #@trace
     def make_bee_action(colony):
-        # This high-order function adds a necessary argument for action: colony 
+        nonlocal duration # make it nonlocal so that duraton can be decreased by 1
+        print("Bee name: %s, duration: %d" %(str(bee), duration) )
+        
         if duration <= 0:
             bee.action = orig_action
             bee.action(colony)
         else:
-            nonlocal duration # make it nonlocal so that duraton can be decreased by 1
             duration -= 1
             new_action(colony)
+
     bee.action = make_bee_action
+
 
 
 class SlowThrower(ThrowerAnt):
@@ -782,10 +785,42 @@ class StunThrower(ThrowerAnt):
         if target:
             apply_effect(make_stun, target, 1)
 
+#####################
+# NEW ANT TYPE
+#####################
+
+class AntDestroyer(Ant):
+    """ Remove all ants in all tunnels except the QueenAnt! """
+    name = "Destroyer"
+    food_cost   = 10
+    implemented = True
+
+    def __init__(self):
+        Ant.__init__(self)
+
+    def action(self, colony):
+        def fn_adaptor(place):
+            run_fn_over_entire_tunnel(remove_ant, place)
+        
+        tunnel_entrances = find_tunnel_entrances(colony)
+        apply_to_all(fn_adaptor, tunnel_entrances)
+
+
+def remove_ant(this_place):
+    if this_place.ant is None or isinstance(this_place.ant, QueenAnt): 
+        return
+    
+    if this_place.ant.container and isinstance(this_place.ant.ant, QueenAnt):
+        this_place.ant = this_place.ant.ant
+    else:
+        this_place.ant = None
+
+def find_tunnel_entrances(colony):
+    return [p for p in colony.get_places().values() if p.entrance == colony.hive]
+
 
 @main
 def run(*args):
     start_with_strategy(args, interactive_strategy)
-
 
 
