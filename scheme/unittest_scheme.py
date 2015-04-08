@@ -106,6 +106,8 @@ class part_2(unittest.TestCase):
         self.assertEqual(5, first_frame.lookup("x"))
     
     def test_do_define_form(self):
+        # NB: more tests in tests.scm
+        
         # first phase of do_define_form 
         vals = Pair('size', Pair(2, nil))
         env = scheme.create_global_frame()
@@ -113,6 +115,7 @@ class part_2(unittest.TestCase):
         self.assertEqual( 2, env.lookup("size"))
         
     def test_do_quote_form(self):
+        # NB: more tests in tests.scm
         self.assertEqual( "x", scheme.do_quote_form(Pair("x", nil)) )
         self.assertEqual( "(1 . 2)", scheme.do_quote_form(Pair("(1 . 2)", nil)) )
 
@@ -122,28 +125,37 @@ class part_2(unittest.TestCase):
         
         self.assertRaises( SchemeError, scheme.do_quote_form, Pair(2, 2) ) # invalid scheme list
 
-    def test_do_begin_form(self):  
-        #eval("(begin 30 'hello)")
-        #'hello'
-        #eval("(begin (define x 3) (cons x '(y z)))")
-        #Pair(3, Pair('y', Pair('z', nil)))
+    def test_do_begin_form(self): 
+        # NB: more tests in tests.scm
         return
 
     def test_do_lambda_form(self):
+        # NB: more tests in tests.scm
         return
 
     def test_make_call_frame(self):  
         global_frame = scheme.create_global_frame()
+        
+        formals, vals = read_line("(3c)"), read_line("(3)")
+        frame = global_frame.make_call_frame(formals, vals)
+        self.assertEqual("<{3c: 3} -> <Global Frame>>", repr(frame)) # 3c is a valid variable name
+
         formals, vals = read_line("(a b c)"), read_line("(1 2 3)")
         frame = global_frame.make_call_frame(formals, vals)
-        self.assertEqual(repr(frame), "<{a: 1, b: 2, c: 3} -> <Global Frame>>")
-        self.assertEqual(repr(frame.parent), "<Global Frame>") # frame's parent is global_frame 
+        self.assertEqual( "<{a: 1, b: 2, c: 3} -> <Global Frame>>", repr(frame))
+        self.assertEqual(global_frame, frame.parent)       
+        
+        formals, vals = read_line("(a b a)"), read_line("(1 2 3)")
+        frame = global_frame.make_call_frame(formals, vals)
+        self.assertEqual( "<{a: 3, b: 2} -> <Global Frame>>", repr(frame))
+
         
         formals, vals = read_line("(a b c)"), read_line("(1 2 3 4)")
         self.assertRaises(SchemeError, global_frame.make_call_frame, formals, vals)
         formals, vals = read_line("(a b c)"), read_line("(1 2)")
         self.assertRaises(SchemeError, global_frame.make_call_frame, formals, vals)
     
+
     def test_check_formals(self):
         scheme.check_formals(read_line("(a b c)")) # run successfully 
         formals = ("(x #t z)")
@@ -155,7 +167,7 @@ class part_2(unittest.TestCase):
         self.assertRaises( SchemeError, scheme.check_formals,formals)
 
     def test_do_and_or_forms(self):
-
+        # NB: more tests in tests.scm
         # do_and_form: return the last sub expr regardless of True or False
         global_frame = scheme.create_global_frame()
         val = scheme.do_and_form(read_line("(4 5 6)"), global_frame)
@@ -183,7 +195,7 @@ class part_2(unittest.TestCase):
         result = scheme.scheme_eval(read_line("(let ((a 1) (b a)) b)"), env)
         self.assertEqual(result, 1)
         
-        # SchemeError: too many operands, too few operands, invalid symbol, unknown symbol
+        # SchemeError: too many operands, too few operands, invalid symbol, unknown symbol, respectively
         self.assertRaises(SchemeError, scheme.scheme_eval, read_line("(let ((a 1 1)) a)"), env)
         self.assertRaises(SchemeError, scheme.scheme_eval, read_line("(let ((a 1) (b)) a)"), env)
         self.assertRaises(SchemeError, scheme.scheme_eval, read_line("(let ((a 1) (2 2)) a)"), env) 

@@ -9,7 +9,8 @@ from ucb import main, trace
 # Notes: utility function summary
 #   check_form(expr, min, max = None) checks expr as a list has required length
 #   check_formals(formals) checks if it is a valid parameter list, i.e. a Scheme list of symbols
-#   scheme_listp(expr) checks if expr is a list
+#   scheme_listp(expr) checks if expr is a well formed list
+#   scheme_symbolp(symbol) check if it is a valid variable name
 
 ##############
 # Eval/Apply #
@@ -144,16 +145,33 @@ class Frame:
         >>> env.make_call_frame(formals, vals)
         <{a: 1, b: 2, c: 3} -> <Global Frame>>
         """
-        frame = Frame(self) # self is parent of frame
         "*** YOUR CODE HERE ***"
-        if len(formals) != len(vals): raise SchemeError("formals and vals have different lengths")
+        # NB: no requirement of formals elements being unique, so I cannot use check_formals()
+
+        # First, check both validity and length
+        check_form(vals, 0)
+        N = len(vals)
+        check_form(formals, N, N)
+        
+        # Second, bind argument and values
+        frame = Frame(self) # self is parent of frame
         for sym, v in zip(formals, vals):
+            if not scheme_symbolp(sym):
+                raise SchemeError("%s is not a valid argument" % str(sym) )
             frame.define(sym, v)
         return frame
+
 
     def define(self, sym, val):
         """Define Scheme symbol SYM to have value VAL in SELF."""
         self.bindings[sym] = val
+
+
+###################################
+# LambdaProcedure and MuPorcedure
+# They behave more like a struc that holds 
+#   the parameters required for eval
+####################################
 
 class LambdaProcedure:
     """A procedure defined by a lambda expression or the complex define form."""
@@ -213,7 +231,7 @@ def do_lambda_form(vals, env):
     formals = vals[0] 
     check_formals(formals) # check formals is valid agrument list
     "*** YOUR CODE HERE ***"
-    body = prep_body(vals)
+    body = prep_body( vals.second )
     return LambdaProcedure(formals, body, env)
     
 def do_mu_form(vals):
@@ -222,16 +240,14 @@ def do_mu_form(vals):
     formals = vals[0]
     check_formals(formals)
     "*** YOUR CODE HERE ***"
-    body = prep_body(vals)
-    return MuProcedure(formals, body) # env is not needed anymore
+    body = prep_body( vals.second )
+    return MuProcedure( formals, body) # env is not needed anymore
 
-def prep_body(values):
-    rest = values.second
-    if len(rest) == 1: 
-        body = rest.first
-    else:
-        body = Pair("begin", rest)
-    return body
+def prep_body(rest):
+    """helper function for lambda and mu form: prepare BODY expression 
+    formals is the Pair.first part, rest is Pair.second. Hints from lambda and mu procedures' ctor """
+    return rest.first if len(rest) == 1 else Pair("begin", rest)
+
 ################################
 
 def do_define_form(vals, env):
@@ -239,12 +255,12 @@ def do_define_form(vals, env):
     vals is a Pair object """
     check_form(vals, 2)
     target = vals[0]
-    if scheme_symbolp(target): # If target a string
+    if scheme_symbolp(target):
         check_form(vals, 2, 2) # vals has two items
         "*** YOUR CODE HERE ***"
         expr = scheme_eval(vals[1], env)
 
-    elif isinstance(target, Pair): # if targe is a scheme list
+    elif isinstance(target, Pair) and scheme_symbolp(target.first):
         "*** YOUR CODE HERE ***"
         # Use lambda expr to convert "define (fn x y)" to fn lambda (x y) ...
         # Goal is to form an argument list that can be passed to do_lambda_form
@@ -368,14 +384,11 @@ def do_begin_form(vals, env):
     """Evaluate begin form with parameters VALS in environment ENV."""
     check_form(vals, 1)
     "*** YOUR CODE HERE ***"
-    i, N = 0, len(vals) 
-    while i < N:
-        if i < N-1:
-            scheme_eval(vals[i], env)
-        else:
-            return vals[i] # Per instruction, returned value will be auto called by scheme_eval()
-        i += 1
-    
+    N = len(vals)
+    for i, v in enumerate(vals): # evaluate 1 by 1 except the last one
+        if i ==  N - 1:
+            return v # return v, not scheme_eval(v)
+        scheme_eval(v, env)
 
 LOGIC_FORMS = {
         "and": do_and_form,
@@ -407,21 +420,16 @@ def check_formals(formals):
     >>> check_formals(read_line("(a b c)"))
     """
     "*** YOUR CODE HERE ***"
-    # formals is immutable, so it will not be pass by reference
-    uniq_symbols = []
-    while formals is not nil:
-        if type(formals) != Pair : 
-            raise SchemeError( "formals is not a well formed list")
-        
-        sym = formals.first
-        if sym in uniq_symbols:
-            raise SchemeError( str(sym) + " appears more than once")
-        uniq_symbols.append(sym)
-        
+    if not scheme_listp(formals):
+        raise SchemeError("formals is a not a well-formed list:{0}".format(str(formals)))
+
+    uniq_symbols = {} # saving uniq_symbols as dict keys can achieve O(1) in search
+    for sym in formals: 
         if not scheme_symbolp(sym):
             raise SchemeError( str(sym) + " is not a valid symbol")
-
-        formals = formals.second # go to the next pair
+        if sym in uniq_symbols:            
+            raise SchemeError( str(sym) + " appears more than once")
+        uniq_symbols[sym] = 0
 
 
 ##################
