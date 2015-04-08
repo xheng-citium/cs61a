@@ -8,64 +8,81 @@ from ucb import main, trace, interact
 from scheme_tokens import tokenize_lines
 from buffer import Buffer  
 
-"""Notes:
-  Expected SchemeError cases usually go here 
-  More successful cases are in tests.scm
+"""Notes
+  More cases are in tests.scm
 """
 
 class part_1(unittest.TestCase):
     def test_scheme_read(self):    
         lines = ["(+ 1 ", "(+ 23 4)) ("]
         src = Buffer(tokenize_lines(lines))
-        self.assertEqual( str(scheme_read(src)), "(+ 1 (+ 23 4))")
+        self.assertEqual("(+ 1 (+ 23 4))", str(scheme_read(src)) ) # from doctest
         
-        lst = read_line("'hello")
-        self.assertEqual(lst, Pair('quote', Pair('hello', nil)))
-        lst = read_line("(car '(1 2))")
-        self.assertEqual( str(lst), "(car (quote (1 2)))")
+        res = read_line("'hello")
+        self.assertEqual(Pair('quote', Pair('hello', nil)), res)
+        res = read_line("(car '(1 2))")
+        self.assertEqual( "(car (quote (1 2)))", str(res))
         
-        lst = read_line("(a (b 'c))")
-        self.assertEqual(lst, Pair('a', Pair(Pair('b', Pair(Pair('quote', Pair('c', nil)), nil)), nil)))
-        lst = read_line("(a (b '(c d)))" )
-        self.assertEqual(lst, Pair('a', Pair(Pair('b', Pair(Pair('quote', Pair(Pair('c', Pair('d', nil)), nil)), nil)), nil)))
+        res = read_line("(a (b 'c))")
+        self.assertEqual(Pair('a', Pair(Pair('b', Pair(Pair('quote', Pair('c', nil)), nil)), nil)), res)
+        res = read_line("(a (b '(c d)))" )
+        self.assertEqual(Pair('a', Pair(Pair('b', Pair(Pair('quote', Pair(Pair('c', Pair('d', nil)), nil)), nil)), nil)), res)
         self.assertRaises(SyntaxError, read_line, "')")
+        
+        self.assertEqual(1, read_line("1 . 2")); # no parenthesis should not raise Error at this stage 
 
     def test_read_tail(self):  
-        lst = read_tail(Buffer(tokenize_lines([")"])))
-        self.assertEqual(repr(lst), "nil")
-        self.assertEqual(lst, nil)
-        lst = read_tail(Buffer(tokenize_lines(["2 3)"])))
-        self.assertEqual(lst, Pair(2, Pair(3, nil)))
-        lst = read_tail(Buffer(tokenize_lines(["2 (3 4))"])))
-        self.assertEqual(lst, Pair(2, Pair(Pair(3, Pair(4, nil)), nil)))
-        self.assertRaises(SyntaxError, read_line, "(1 2")
-        SyntaxError
+        res = read_tail(Buffer(tokenize_lines([")"])))
+        self.assertEqual(nil, res)
+        
+        res = read_tail(Buffer(tokenize_lines(["2 3)"])))
+        self.assertEqual(Pair(2, Pair(3, nil)), res)
+        
+        self.assertRaises(SyntaxError, read_tail, Buffer(tokenize_lines(["2 3"])) )
+
+        res = read_tail(Buffer(tokenize_lines(["2 (3 4))"])))
+        self.assertEqual( Pair(2, Pair(Pair(3, Pair(4, nil)), nil)), res)
  
         # testing dots
-        self.assertEqual( read_line("(1 . 2)"), Pair(1, 2))
-        self.assertEqual( read_line("(1 2 . 3)"), Pair(1, Pair(2, 3)))
+        self.assertRaises( SyntaxError, read_line, "(1 . )")
+
+        self.assertEqual( Pair(1, 2), read_line("(1 . 2)"))
+        self.assertEqual( Pair(1, 2), read_line(" ( 1  .  2 ) ")) # extra space is ok
+        self.assertEqual( Pair(1, Pair(2, 3)), read_line("(1 2 . 3)"))
         self.assertRaises( SyntaxError, read_line, "(1 . 2 3)")
-        lst = scheme_read( Buffer(tokenize_lines(["(1", "2 .", "'(3 4))", "4"])))
-        self.assertEqual( lst, Pair(1, Pair(2, Pair('quote', Pair(Pair(3, Pair(4, nil)), nil)))))
+
+        res = scheme_read( Buffer(tokenize_lines(["(1", "2 .", "'(3 4))", "4"])))
+        self.assertEqual( Pair(1, Pair(2, Pair('quote', Pair(Pair(3, Pair(4, nil)), nil)))), res)
         
         self.assertRaises( SyntaxError, read_line, "(2 . 3 4 . 5)")
-        self.assertEqual( read_line("(2 (3 . 4) 5)"), Pair(2, Pair(Pair(3, 4), Pair(5, nil))))
-        lst = read_line("(hi there . (cs . (student)))")
-        self.assertEqual( lst, Pair('hi', Pair('there', Pair('cs', Pair('student', nil)))))
-        self.assertEqual( read_line("(1 (9 8) . 7)"), Pair(1, Pair(Pair(9, Pair(8, nil)), 7)))
-        
-        # NB I have also successfully run scheme_read tests at the end of part 1. Some are included above
+        self.assertEqual( Pair(2, Pair(Pair(3, 4), Pair(5, nil))),read_line("(2 (3 . 4) 5)") )
 
-class phase_2(unittest.TestCase):
-    def test_apply_primitive(self):
+        res = read_line("(hi there . (cs . (student)))")
+        self.assertEqual( Pair('hi', Pair('there', Pair('cs', Pair('student', nil)))), res)
+        self.assertEqual( Pair(1, Pair(Pair(9, Pair(8, nil)), 7)), read_line("(1 (9 8) . 7)"))
+        
+
+class part_2(unittest.TestCase):
+    def test_apply_primitive(self):     
+        env = scheme.create_global_frame()
+        four = Pair(4, nil)
+        proc = PrimitiveProcedure(scheme.scheme_eval, True)
+        self.assertTrue(proc.use_env)
+        self.assertEqual(4, scheme.scheme_apply(proc, four, env))
+ 
+        env = scheme.create_global_frame()
+        proc = PrimitiveProcedure(scheme.scheme_eval, False)
+        self.assertFalse(proc.use_env)
+        self.assertRaises(SchemeError, scheme.scheme_apply,proc, four, env) # scheme.eval needs use_env = True
+
         env = scheme.create_global_frame()
         plus = env.bindings["+"]
         twos = Pair(2, Pair(2, nil))
-        self.assertEqual( scheme.apply_primitive(plus, twos, env), 4)        
+        self.assertEqual(4, scheme.apply_primitive(plus, twos, env))        
         
         env = scheme.create_global_frame()
         plus = PrimitiveProcedure(scheme_add) 
-        self.assertEqual( scheme.scheme_apply(plus, twos, env), 4)
+        self.assertEqual(4, scheme.scheme_apply(plus, twos, env))
         
         env = scheme.create_global_frame()
         oddp = PrimitiveProcedure(scheme_oddp) # odd? procedure
@@ -76,36 +93,34 @@ class phase_2(unittest.TestCase):
         first_frame.define("x", 3)
         second_frame = scheme.Frame(first_frame)
         second_frame.define("y", 4)
-        self.assertEqual(second_frame.parent, first_frame)
-        self.assertEqual(second_frame.lookup("y"), 4)
-        self.assertEqual(second_frame.lookup("x"), 3)
+        self.assertEqual(first_frame, second_frame.parent)
+        self.assertEqual(4, second_frame.lookup("y"))
+        self.assertEqual(3, second_frame.lookup("x"))
         self.assertRaises(SchemeError, second_frame.lookup, "z") # z does not exist
 
         first_frame.define("x", 5) # change x value, parent bindings dict is updated
-        self.assertEqual(second_frame.lookup("x"), 5)
+        self.assertEqual(5, second_frame.lookup("x"))
+
         second_frame.define("x", 6) # x in parent bindings is masked by x in second_frame
-        self.assertEqual(second_frame.lookup("x"), 6)
+        self.assertEqual(6, second_frame.lookup("x"))
+        self.assertEqual(5, first_frame.lookup("x"))
     
     def test_do_define_form(self):
-        expr = read_line("(+ 2 (- 3) )")
-        self.assertEqual( scheme.scheme_eval(expr, scheme.create_global_frame()), -1)      
-        
-        #result = eval('''(define pi 3.14159)
-        #(define radius 10)
-        #(* pi (* radius radius)) ''')
-        #self.assertEqual(result, 314.159)
-        #self.assertRaises(SchemeError, eval, "(define 0 1)")
-        
+        # first phase of do_define_form 
         vals = Pair('size', Pair(2, nil))
         env = scheme.create_global_frame()
-        self.assertEqual( scheme.do_define_form(vals, env), "size")
-        self.assertEqual( env.lookup("size"), 2)
-
+        self.assertEqual( "size", scheme.do_define_form(vals, env))
+        self.assertEqual( 2, env.lookup("size"))
+        
     def test_do_quote_form(self):
-        self.assertEqual(scheme.do_quote_form(Pair("x", nil)), "x")
-        self.assertEqual(scheme.do_quote_form(Pair("(1 . 2)", nil)), "(1 . 2)")
+        self.assertEqual( "x", scheme.do_quote_form(Pair("x", nil)) )
+        self.assertEqual( "(1 . 2)", scheme.do_quote_form(Pair("(1 . 2)", nil)) )
+
         line = "(1 (2 three . (4 . 5)))"
-        self.assertEqual( scheme.do_quote_form( Pair(line, nil)), line)
+        self.assertEqual( line, scheme.do_quote_form( Pair(line, nil)) )
+        self.assertRaises( SchemeError, scheme.do_quote_form, Pair(line, Pair(2, nil)) )
+        
+        self.assertRaises( SchemeError, scheme.do_quote_form, Pair(2, 2) ) # invalid scheme list
 
     def test_do_begin_form(self):  
         #eval("(begin 30 'hello)")
@@ -175,7 +190,7 @@ class phase_2(unittest.TestCase):
         self.assertRaises(SchemeError, scheme.scheme_eval, read_line("(let ((a 1) (b 2)) c)"), env) 
         
 
-
-
 if __name__ == "__main__":
     unittest.main()
+
+

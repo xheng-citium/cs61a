@@ -6,6 +6,11 @@ from scheme_primitives import *
 from scheme_reader import *
 from ucb import main, trace
 
+# Notes: utility function summary
+#   check_form(expr, min, max = None) checks expr as a list has required length
+#   check_formals(formals) checks if it is a valid parameter list, i.e. a Scheme list of symbols
+#   scheme_listp(expr) checks if expr is a list
+
 ##############
 # Eval/Apply #
 ##############
@@ -82,12 +87,14 @@ def apply_primitive(procedure, args, env):
     4
     """
     "*** YOUR CODE HERE ***"
-    py_args = [ args[i] for i in range(len(args))] # scheme list -> py list, see __getitem__() of Pair
-    if procedure.use_env: py_args.append(env)
+    py_args = [ a for a in args] # convert a scheme list to a py list, see __getitem__() of Pair; List comprehension still works
+    if procedure.use_env: 
+        py_args.append(env)
     try: 
         return procedure.fn(*py_args)
     except TypeError:
-        raise SchemeError("Failed call of the function: %s" % procedure.fn.__name__)
+        raise SchemeError("Failed call of the function: %s" % str(procedure.fn))
+
 
 ################
 # Environments #
@@ -113,9 +120,10 @@ class Frame:
         "*** YOUR CODE HERE ***"
         if symbol in self.bindings: 
             return self.bindings[symbol]
-        elif self.parent is not None:
+        elif self.parent:
             return self.parent.lookup(symbol)
-        raise SchemeError("unknown identifier: {0}".format(str(symbol)))
+        else:
+            raise SchemeError("unknown identifier: {0}".format(str(symbol)))
 
 
     def global_frame(self):
@@ -236,7 +244,7 @@ def do_define_form(vals, env):
         "*** YOUR CODE HERE ***"
         expr = scheme_eval(vals[1], env)
 
-    elif isinstance(target, Pair): # if targe is a list
+    elif isinstance(target, Pair): # if targe is a scheme list
         "*** YOUR CODE HERE ***"
         # Use lambda expr to convert "define (fn x y)" to fn lambda (x y) ...
         # Goal is to form an argument list that can be passed to do_lambda_form
@@ -246,7 +254,7 @@ def do_define_form(vals, env):
     else:
         raise SchemeError("bad argument to define")
     
-    env.define(target, expr) # bind fn name and related expression
+    env.define(target, expr) # bind target and its related expression
     return target
 
 def do_quote_form(vals):

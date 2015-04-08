@@ -15,6 +15,7 @@ The __str__ method of a Scheme value will return a Scheme expression that
 would be read to the value, where possible.
 """
 
+import pdb
 from ucb import main, trace, interact
 from scheme_tokens import tokenize_lines, DELIMITERS
 from buffer import Buffer, InputReader, LineReader
@@ -131,7 +132,7 @@ def scheme_read(src):
     val = src.pop()
     if val == "nil":
         return nil
-    elif val not in DELIMITERS: # ( ) '
+    elif val not in DELIMITERS: # examples: ( ) '
         return val
     elif val == "'":
         "*** YOUR CODE HERE ***"
@@ -169,10 +170,10 @@ def read_tail(src):
             return nil
         elif src.current() == ".":
             "*** YOUR CODE HERE ***"
-            src.pop() # skip "."
+            src.pop()
             result = scheme_read(src)
-            if src.pop() != ')': # check to see if ) follows
-                raise SyntaxError("Expected one element after .") # error mesg per doc test
+            if src.pop() != ')': # check if ) follows
+                raise SyntaxError("Expected only one element after .") 
             return result
         else:
             first = scheme_read(src)
