@@ -521,12 +521,11 @@ class FireAnt(Ant):
     implemented = True
 
     def reduce_armor(self, amount):
-        self.armor -= amount
+        bees =  list(self.place.bees)
+        Insect.reduce_armor(self, amount)
         if self.armor <= 0:
-            for b in list(self.place.bees):
+            for b in bees:
                 b.reduce_armor(self.damage)
-            self.place.remove_insect(self) # remove FireAnt itself
-
 
 class LongThrower(ThrowerAnt):
     """A ThrowerAnt that only throws leaves at Bees at least 4 places away."""
@@ -585,15 +584,13 @@ class HungryAnt(Ant):
         Ant.__init__(self)
         self.digesting = 0
 
-    def eat_bee(self, bee):
-        bee.reduce_armor(bee.get_armor())
-
     def action(self, colony):
         if self.digesting > 0:
             self.digesting -= 1
             return
         if self.place.bees:
-            self.eat_bee(random_or_none(self.place.bees))
+            b = random_or_none(self.place.bees)
+            b.reduce_armor(b.get_armor())
             self.digesting = self.time_to_digest
 
 class BodyguardAnt(Ant):
@@ -602,6 +599,7 @@ class BodyguardAnt(Ant):
     name = 'Bodyguard'
     food_cost = 4
     container   = True # Can contain other ants
+    isDoubleable = False
     implemented = True
 
     def __init__(self):
@@ -609,6 +607,7 @@ class BodyguardAnt(Ant):
         self.ant = None  # The Ant hidden in this bodyguard
 
     def contain_ant(self, ant):
+        self.can_contain(ant)
         self.ant = ant
 
     def action(self, colony):
@@ -646,6 +645,9 @@ class QueenAnt(ScubaThrower):
         
         self.doubled_ants = [] # track what ants have been doubled
 
+    def throw_at(self, target):
+        ThrowerAnt.throw_at(self, target)
+
 
     def action(self, colony):
         """A queen ant throws a leaf, but also doubles the damage of ants in her tunnel.
@@ -663,12 +665,12 @@ class QueenAnt(ScubaThrower):
         colony.queen = QueenPlace(colony.queen, self.place)
         
         # 3 Attempt to throw a leaf
-        ScubaThrower.action(self, colony) 
-
         # 4 double damage of fellow ant
-        if ThrowerAnt.nearest_bee(self, colony.hive):
+        b = ThrowerAnt.nearest_bee(self, colony.hive)
+        if b:
+            self.throw_at(b)
             run_fn_over_entire_tunnel(self.double_damage, self.place)
-        return
+
 
     def double_damage(self, this_place):
         """ Find a doubleable ant and check it against the list of doubled_ants"""
@@ -695,18 +697,21 @@ def run_fn_over_entire_tunnel(fn, curr_place):
 
 
 def find_doubleable_ant(this_place):
-    if this_place.ant is None or (not this_place.ant.isDoubleable): 
+    # Returns appropriate ant
+    # TODO: if container can damage bees, this function is incorrect
+    if this_place.ant is None: 
         return # do nothing
 
-    # this_ant = the selected ant to be doubled
+    if (not this_place.ant.isDoubleable) and (not this_place.ant.container):
+        return
+
     if this_place.ant.container:
         if this_place.ant.ant and this_place.ant.ant.isDoubleable:
-            this_ant = this_place.ant.ant
+            return this_place.ant.ant
         else:
-            this_ant = None
+            return None
     else:
-        this_ant = this_place.ant
-    return this_ant
+        return this_place.ant
 
 
 class AntRemover(Ant):
