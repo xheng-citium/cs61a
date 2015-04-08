@@ -82,7 +82,7 @@ class Place:
             assert self.ant == insect, '{0} is not in {1}'.format(insect, self)
 
             # Phase 4: Special handling for BodyguardAnt and QueenAnt
-            if isinstance(insect, QueenAnt) and insect.firstQueenAnt:
+            if (not insect.isRemovable) and insect.firstQueenAnt:
                 return # cannot drop the first QueenAnt
             if insect.container and insect.ant: # insect is a Bodyguard and is protecting other
                 self.ant = insect.ant
@@ -101,6 +101,7 @@ class Insect:
     name = ""
     is_ant = False
     watersafe = False
+    isRemovable = True
 
     def __init__(self, armor, place=None):
         """Create an Insect with an armor amount and a starting Place."""
@@ -179,6 +180,7 @@ class Ant(Insect):
     food_cost = 0
     blocks_path = True # True except for Ninja
     container   = False # Can contain other ants or not
+    isDoubleable = True
     implemented = False  # Only implemented Ant classes should be instantiated
 
     def __init__(self, armor=1):
@@ -633,6 +635,8 @@ class QueenAnt(ScubaThrower):
     name = 'Queen'
     food_cost = 6
     ctr_QueenAnt = 0 # Counter of how many QueenAnt there are
+    isRemovable = False
+    isDoubleable = False
     implemented = True
 
     def __init__(self):
@@ -691,12 +695,12 @@ def run_fn_over_entire_tunnel(fn, curr_place):
 
 
 def find_doubleable_ant(this_place):
-    if this_place.ant is None or isinstance(this_place.ant, QueenAnt): 
+    if this_place.ant is None or (not this_place.ant.isDoubleable): 
         return # do nothing
 
     # this_ant = the selected ant to be doubled
     if this_place.ant.container:
-        if this_place.ant.ant and (not isinstance(this_place.ant.ant, QueenAnt)):
+        if this_place.ant.ant and this_place.ant.ant.isDoubleable:
             this_ant = this_place.ant.ant
         else:
             this_ant = None
@@ -807,10 +811,10 @@ class AntDestroyer(Ant):
 
 
 def remove_ant(this_place):
-    if this_place.ant is None or isinstance(this_place.ant, QueenAnt): 
+    if this_place.ant is None or (not this_place.ant.isRemovable): 
         return
     
-    if this_place.ant.container and isinstance(this_place.ant.ant, QueenAnt):
+    if this_place.ant.container and (not this_place.ant.ant.isRemovable):
         this_place.ant = this_place.ant.ant
     else:
         this_place.ant = None
