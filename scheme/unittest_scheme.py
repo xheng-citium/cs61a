@@ -148,7 +148,6 @@ class part_2(unittest.TestCase):
         formals, vals = read_line("(a b a)"), read_line("(1 2 3)")
         frame = global_frame.make_call_frame(formals, vals)
         self.assertEqual( "<{a: 3, b: 2} -> <Global Frame>>", repr(frame))
-
         
         formals, vals = read_line("(a b c)"), read_line("(1 2 3 4)")
         self.assertRaises(SchemeError, global_frame.make_call_frame, formals, vals)
@@ -161,13 +160,14 @@ class part_2(unittest.TestCase):
         formals = ("(x #t z)")
         self.assertRaises(SchemeError, scheme.check_formals, formals) # #t is not valid symbol
 
-        formals = read_line("(a b c b)")
-        self.assertRaises( SchemeError, scheme.check_formals,formals)
+        formals = read_line("(a b c b)") # repeats
+        self.assertRaises( SchemeError, scheme.check_formals, formals)
         formals = read_line("(a . b)")
-        self.assertRaises( SchemeError, scheme.check_formals,formals)
+        self.assertRaises( SchemeError, scheme.check_formals, formals)
 
     def test_do_and_or_forms(self):
         # NB: more tests in tests.scm
+        
         # do_and_form: return the last sub expr regardless of True or False
         global_frame = scheme.create_global_frame()
         val = scheme.do_and_form(read_line("(4 5 6)"), global_frame)

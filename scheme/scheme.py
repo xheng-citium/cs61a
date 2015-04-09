@@ -1,7 +1,7 @@
 """This module implements the core Scheme interpreter functions, including the
 eval/apply mutual recurrence, environment model, and read-eval-print loop.
 """
-import copy, pdb
+import pdb
 from scheme_primitives import *
 from scheme_reader import *
 from ucb import main, trace
@@ -73,7 +73,7 @@ def scheme_apply(procedure, args, env):
     elif isinstance(procedure, MuProcedure):
         "*** YOUR CODE HERE ***"
         frame = env.make_call_frame(procedure.formals, args)
-        return scheme_eval(procedure.body, frame) # evaluated inside parent frame
+        return scheme_eval(procedure.body, frame) # evaluat inside the parent frame
 
     else:
         raise SchemeError("Cannot call {0}".format(str(procedure)))
@@ -245,7 +245,7 @@ def do_mu_form(vals):
 
 def prep_body(rest):
     """helper function for lambda and mu form: prepare BODY expression 
-    formals is the Pair.first part, rest is Pair.second. Hints from lambda and mu procedures' ctor """
+    formals is Pair.first part, rest is Pair.second. Hints from lambda and mu procedures' constructors """
     return rest.first if len(rest) == 1 else Pair("begin", rest)
 
 ################################
@@ -292,16 +292,18 @@ def do_let_form(vals, env):
     # Add a frame containing bindings
     names, values = nil, nil
     "*** YOUR CODE HERE ***"
-    # Per make_call_frame(), we need to make a list of names and a list of values
+    # Per make_call_frame(), need to make a list of names and a list of values
     for pair in bindings:
-        check_form(pair, 2, 2) # pair must have length 2 and be a valid expression
+        check_form(pair, 2, 2)
         if not scheme_symbolp(pair.first): 
-            raise SchemeError("{0} is not a valid symbol".format(str(pair.first)))
-        names = Pair(pair.first, names)
-        values = Pair(scheme_eval(pair[1], env), values)
+            raise SchemeError("{0} is not a valid argument name".format(str(pair.first)))
+        names  = Pair( pair[0], names)
+        values = Pair( scheme_eval(pair[1], env), values)
+    check_formals(names) # per STk, repeats in let is an error
     new_env = env.make_call_frame(names, values)
 
     # Evaluate all but the last expression after bindings, and return the last
+    # NB the below logic is identical to do_begin_form(); not sure why not using it?  
     last = len(exprs)-1
     for i in range(0, last):
         scheme_eval(exprs[i], new_env) # evaluate in this new (local) environment
@@ -319,22 +321,21 @@ def do_if_form(vals, env):
     predicate = scheme_eval(vals[0], env)
     if scheme_true(predicate): 
         return vals[1]
-    if len(vals) == 3:
-        return vals[2]
-    return okay 
+    return vals[2] if len(vals) == 3 else okay
 
 def do_and_form(vals, env):
     """Evaluate short-circuited and with parameters VALS in environment ENV."""
     "*** YOUR CODE HERE ***"
-    if vals == nil: 
+    if vals == nil:
         return True
     for i, v in enumerate(vals):
         result = scheme_eval(v, env)
         if i < len(vals) - 1: 
-            if scheme_false(result): return False
+            if scheme_false(result): 
+            	return False
         else: # last element
             return v # return last sub-expression regardless of True or False  
-            # return result  
+
 
 def quote(value):
     """Return a Scheme expression quoting the Scheme VALUE.
@@ -350,12 +351,13 @@ def quote(value):
 def do_or_form(vals, env):
     """Evaluate short-circuited or with parameters VALS in environment ENV."""
     "*** YOUR CODE HERE ***"
-    if vals == nil: return False
-
+    if vals == nil: 
+    	return False
     for i, v in enumerate(vals):
         result = scheme_eval(v, env)
         if i < len(vals) - 1:
-            if scheme_true(result): return quote(result)
+            if scheme_true(result): 
+            	return quote(result)
         else: 
             return v
 
@@ -372,6 +374,7 @@ def do_cond_form(vals, env):
                 raise SchemeError("badly formed else clause")
         else:
             test = scheme_eval(clause.first, env)
+        
         if scheme_true(test):
             "*** YOUR CODE HERE ***"
             if clause.second == nil: # body of cond case is empty
@@ -380,15 +383,17 @@ def do_cond_form(vals, env):
                 return do_begin_form(clause.second, env)
     return okay
 
+
 def do_begin_form(vals, env):
     """Evaluate begin form with parameters VALS in environment ENV."""
     check_form(vals, 1)
     "*** YOUR CODE HERE ***"
     N = len(vals)
-    for i, v in enumerate(vals): # evaluate 1 by 1 except the last one
+    for i, v in enumerate(vals):
         if i ==  N - 1:
-            return v # return v, not scheme_eval(v)
+            return v # return the last v, not scheme_eval(v)
         scheme_eval(v, env)
+
 
 LOGIC_FORMS = {
         "and": do_and_form,
@@ -423,7 +428,7 @@ def check_formals(formals):
     if not scheme_listp(formals):
         raise SchemeError("formals is a not a well-formed list:{0}".format(str(formals)))
 
-    uniq_symbols = {} # saving uniq_symbols as dict keys can achieve O(1) in search
+    uniq_symbols = {} # saving uniq_symbols as dict keys achieves O(1) in search
     for sym in formals: 
         if not scheme_symbolp(sym):
             raise SchemeError( str(sym) + " is not a valid symbol")
