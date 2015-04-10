@@ -39,14 +39,22 @@
   (define fronts (apply-to-all car pairs))
   (define tails  (apply-to-all cadr pairs))
   (list fronts tails)
-
-  ) ; expect zip
+ ) 
+; expect zip
 
 (display "Testing Problem 18 ")
-(zip '()) ; expect (() ())
-(zip '((1 2))) ; expect ((1) (2))
-(zip '((1 2) (3 4) (5 6))) ; expect ((1 3 5) (2 4 6))
+(zip '()) 
+; expect (() ())
+(zip '((1 2))) 
+; expect ((1) (2))
+(zip '((1 2) (3 4) (5 6))) 
+; expect ((1 3 5) (2 4 6))
 
+(zip '((1 . 2)))
+; expect Error
+
+(zip '(1))
+; expect Error
 
 
 ; Problem 19
@@ -69,12 +77,22 @@
 )
 
 (display "Testing Problem 19 ")
-(list-partitions 5 2 4) ; expect a permutation of ((4 1) (3 2))
-(list-partitions 7 3 5) ; expect a permutation of ((5 2) (5 1 1) (4 3) (4 2 1) (3 3 1) (3 2 2))
-(list-partitions 5 4 3) ; expect a permutation of ((3 2) (3 1 1) (2 2 1) (2 1 1 1))  
-(list-partitions 7 2 4) ; expect ((4 3))
-(list-partitions 7 7 1) ; expect ((1 1 1 1 1 1 1))
-(list-partitions 7 6 1) ; expect nil
+(list-partitions 5 2 4) 
+; expect ((4 1) (3 2))
+
+(list-partitions 7 3 5) 
+; expect ((5 2) (5 1 1) (4 3) (4 2 1) (3 3 1) (3 2 2))
+
+(list-partitions 5 4 3) 
+; expect ((3 2) (3 1 1) (2 2 1) (2 1 1 1))
+(list-partitions 7 2 4) 
+; expect ((4 3))
+
+(list-partitions 7 7 1) 
+; expect ((1 1 1 1 1 1 1))
+
+(list-partitions 7 6 1) 
+; expect ()
 
 
 ; Problem 20
@@ -118,7 +136,7 @@
               ;'YOUR-CODE-HERE
               (define zipped (zip values))
               (define args (car zipped))
-              (define args-values (cdr zipeed))
+              (define args-values (cdr zipped))
                ; (caar args-values) -> 1
                ; (cadar args-values) -> 2           
            )
