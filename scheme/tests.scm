@@ -239,15 +239,14 @@ tauu
 
 (lambda (x) 2 (+ x 2))
 ; expect (lambda (x) (begin 2 (+ x 2)))
+(lambda (y) (print y) (* y 2)) 
+; expect (lambda (y) (begin (print y) (* y 2)))
 
 (lambda (x y) (+ x y)) 
 ; expect (lambda (x y) (+ x y))
 
 (lambda (x) (+ x y) ) 
 ; expect (lambda (x) (+ x y))
-
-(lambda (y) (print y) (* y 2)) 
-; expect (lambda (y) (begin (print y) (* y 2)))
 
 (define f (lambda (x) (* x 2))) 
 ; expect f
