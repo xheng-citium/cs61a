@@ -67,13 +67,13 @@ def scheme_apply(procedure, args, env):
 
     elif isinstance(procedure, LambdaProcedure):
         "*** YOUR CODE HERE ***"
-        frame = procedure.env.make_call_frame(procedure.formals, args)
-        return scheme_eval(procedure.body, frame)
+        new_env = procedure.env.make_call_frame(procedure.formals, args)
+        return scheme_eval(procedure.body, new_env)
     
     elif isinstance(procedure, MuProcedure):
         "*** YOUR CODE HERE ***"
-        frame = env.make_call_frame(procedure.formals, args)
-        return scheme_eval(procedure.body, frame) # evaluat inside the parent frame
+        new_env = env.make_call_frame(procedure.formals, args)
+        return scheme_eval(procedure.body, new_env) # evaluat inside the parent frame
 
     else:
         raise SchemeError("Cannot call {0}".format(str(procedure)))
@@ -88,7 +88,8 @@ def apply_primitive(procedure, args, env):
     4
     """
     "*** YOUR CODE HERE ***"
-    py_args = [ a for a in args] # convert a scheme list to a py list, see __getitem__() of Pair; List comprehension still works
+    py_args = [ a for a in args] # convert a scheme list to a py list 
+                                 # list comprehension still works
     if procedure.use_env: 
         py_args.append(env)
     try: 
@@ -146,9 +147,8 @@ class Frame:
         <{a: 1, b: 2, c: 3} -> <Global Frame>>
         """
         "*** YOUR CODE HERE ***"
-        # NB: no requirement of formals elements being unique, so I cannot use check_formals()
-
-        # First, check both validity and length
+        # NB: no requirement of formals elements being unique, so do not use check_formals() here
+        # First, check both validity and length of vals and formals
         check_form(vals, 0)
         N = len(vals)
         check_form(formals, N, N)
@@ -256,7 +256,7 @@ def do_define_form(vals, env):
     check_form(vals, 2)
     target = vals[0]
     if scheme_symbolp(target):
-        check_form(vals, 2, 2) # vals has two items
+        check_form(vals, 2, 2) 
         "*** YOUR CODE HERE ***"
         expr = scheme_eval(vals[1], env)
 
@@ -329,8 +329,8 @@ def do_and_form(vals, env):
     if vals == nil:
         return True
     for i, v in enumerate(vals):
-        result = scheme_eval(v, env)
         if i < len(vals) - 1: 
+            result = scheme_eval(v, env)
             if scheme_false(result): 
             	return False
         else: # last element
@@ -354,8 +354,8 @@ def do_or_form(vals, env):
     if vals == nil: 
     	return False
     for i, v in enumerate(vals):
-        result = scheme_eval(v, env)
         if i < len(vals) - 1:
+            result = scheme_eval(v, env)
             if scheme_true(result): 
             	return quote(result)
         else: 
@@ -428,13 +428,13 @@ def check_formals(formals):
     if not scheme_listp(formals):
         raise SchemeError("formals is a not a well-formed list:{0}".format(str(formals)))
 
-    uniq_symbols = {} # saving uniq_symbols as dict keys achieves O(1) in search
+    uniq_symbols = {}     
     for sym in formals: 
         if not scheme_symbolp(sym):
             raise SchemeError( str(sym) + " is not a valid symbol")
         if sym in uniq_symbols:            
             raise SchemeError( str(sym) + " appears more than once")
-        uniq_symbols[sym] = 0
+        uniq_symbols[sym] = 0 # saving sym as dict keys achieves O(1) in search
 
 
 ##################
@@ -479,24 +479,24 @@ def scheme_optimized_eval(expr, env):
             procedure = scheme_eval(first, env)
             args = rest.map(lambda operand: scheme_eval(operand, env))
 
-            # Compared to scheme_apply, 
+            # Goal is to replace expr and env with different expressions and environments in the user-define procedure
+            # expr and env are identical to scheme_apply(), but don't evaludate. Instead, pass them on iteratively
             if isinstance(procedure, PrimitiveProcedure):
                 return apply_primitive(procedure, args, env)
             elif isinstance(procedure, LambdaProcedure):
                 env  = procedure.env.make_call_frame(procedure.formals, args)
-                expr = procedure.body
-
             elif isinstance(procedure, MuProcedure):
                 env  = env.make_call_frame(procedure.formals, args) # don't create a new frane
-                expr = procedure.body
             else:
                 raise SchemeError("Failed to evaludate %s" %(str(expr)) )
+            
+            expr = procedure.body
 
 
 ################################################################
 # Uncomment the following line to apply tail call optimization #
 ################################################################
-#scheme_eval = scheme_optimized_eval
+# scheme_eval = scheme_optimized_eval
 
 
 ################

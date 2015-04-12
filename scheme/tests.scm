@@ -142,11 +142,13 @@ tauu
 (define tau 'x)
 ; return tau
 
-(define 3c 3)
+(define 3c 3) ; 3c is valid argument name
 ; expect 3c
 
-(define #c 3)
-; expect Error: too few operands in for
+(define #c 3); # cannot appear in argument name
+; expect Error: too few operands in form
+(define c# 3); 
+; expect Error 
 
 
 ; Problem 6B
@@ -295,6 +297,18 @@ tauu
 ; expect square
 square 
 ; expect (lambda (x) (* x x))
+
+(square 2)
+; expect 4
+(square #t)
+; expect 1
+
+(apply square 2)
+; expect Error
+(apply square '2)
+; expect Error
+(apply square (list 2))
+; expect 4
 
 (define (pos x y) (and (>= x 0) (>= y 0)))
 ; expect pos
@@ -641,6 +655,7 @@ pos
 (define g (mu (x y) (f)))
 (g 2 3)
 ; expect 5
+
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1206,22 +1221,22 @@ one-through-four
 ; expect 4
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Move the following (exit) line to run additional tests. ;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(exit)
-
-
-
 ;;;;;;;;;;;;;;;;;;;;
 ;;; Extra credit ;;;
 ;;;;;;;;;;;;;;;;;;;;
 
-(exit)
+; NB: Deleting (exit) below would depend on whether or not scheme_eval = scheme_optimized_eval in scheme.py is commented out
+; It gives either the right answer or a Scheme Error: maximum recursion depth exceeded in comparison
 
-; Tail call optimization test
 (define (sum n total)
   (if (zero? n) total
     (sum (- n 1) (+ n total))))
-(sum 1001 0)
-; expect 501501
+(sum 1001 0) ; expect 501501
+; expect Error
+
+(define (factorial n k) 
+ (if (eq? n 0) k
+              (factorial (- n 1) (* k n)))
+)
+(factorial 1000 1)
+; expect Error

@@ -192,10 +192,10 @@ class part_2(unittest.TestCase):
         env = scheme.create_global_frame()
         result = scheme.scheme_eval(read_line("(let ((x 42) (y (* 5 10))) (list x y)) "), env)
         self.assertEqual(str(result), "(42 50)")
-        result = scheme.scheme_eval(read_line("(let ((a 1) (b a)) b)"), env)
-        self.assertEqual(result, 1)
         
-        # SchemeError: too many operands, too few operands, invalid symbol, unknown symbol, respectively
+        # SchemeError: unknown identifier, too many operands, too few operands, 
+        #              invalid symbol, unknown symbol, respectively
+        self.assertRaises(SchemeError, scheme.scheme_eval, read_line("(let ((a 1) (b a)) b)"), env)
         self.assertRaises(SchemeError, scheme.scheme_eval, read_line("(let ((a 1 1)) a)"), env)
         self.assertRaises(SchemeError, scheme.scheme_eval, read_line("(let ((a 1) (b)) a)"), env)
         self.assertRaises(SchemeError, scheme.scheme_eval, read_line("(let ((a 1) (2 2)) a)"), env) 
